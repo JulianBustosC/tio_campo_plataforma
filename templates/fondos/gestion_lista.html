@@ -2,18 +2,43 @@
 {% block title %}Gestión de solicitudes de nómina{% endblock %}
 {% block content %}
 <section class="py-5"><div class="container">
-  <h1 class="section-title mb-4">Solicitudes por revisar</h1>
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <h1 class="section-title mb-0">Solicitudes de nómina</h1>
+    <div class="d-flex flex-wrap gap-2">
+      {% for fondo in fondos %}
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'fondos:gestion_padron' fondo.id %}"><i class="bi bi-people me-1"></i>Padrón {{ fondo.nombre }}</a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <form method="get" class="d-flex flex-wrap gap-2 mb-4">
+    <select name="estado" class="form-select w-auto" onchange="this.form.submit()">
+      <option value="todas" {% if not estado %}selected{% endif %}>Todas</option>
+      {% for codigo, nombre in estados %}<option value="{{ codigo }}" {% if estado == codigo %}selected{% endif %}>{{ nombre }}</option>{% endfor %}
+    </select>
+    <input type="search" name="q" value="{{ busqueda }}" class="form-control w-auto" placeholder="Documento o nombre">
+    <button class="btn btn-tio" type="submit">Buscar</button>
+  </form>
+
   {% for solicitud in solicitudes %}
     <div class="product-card p-4 mb-3">
       <div class="row align-items-center g-3">
         <div class="col-md-2"><strong>#{{ solicitud.id }}</strong><div class="small text-muted">{{ solicitud.fecha_solicitud|date:"d/m/Y H:i" }}</div></div>
         <div class="col-md-3">{{ solicitud.nombre_completo }}<div class="small text-muted">CC {{ solicitud.documento }}</div></div>
         <div class="col-md-2">{{ solicitud.fondo.nombre }}</div>
-        <div class="col-md-2">${{ solicitud.valor_solicitado|floatformat:0 }}</div>
+        <div class="col-md-2">${{ solicitud.valor_solicitado|floatformat:0 }}{% if solicitud.valor_aprobado != None and not solicitud.esta_pendiente %}<div class="small text-muted">Aprobado ${{ solicitud.valor_aprobado|floatformat:0 }}</div>{% endif %}</div>
         <div class="col-md-1"><span class="badge text-bg-secondary">{{ solicitud.get_estado_display }}</span></div>
-        <div class="col-md-2 text-md-end"><a class="btn btn-tio" href="{% url 'fondos:gestion_detalle' solicitud.id %}">Revisar</a></div>
+        <div class="col-md-2 text-md-end"><a class="btn btn-tio" href="{% url 'fondos:gestion_detalle' solicitud.id %}">{% if solicitud.esta_pendiente %}Revisar{% else %}Ver{% endif %}</a></div>
       </div>
     </div>
-  {% empty %}<div class="alert alert-info">No hay solicitudes asignadas a este usuario.</div>{% endfor %}
+  {% empty %}<div class="alert alert-info">No hay solicitudes con este filtro.</div>{% endfor %}
+
+  {% if pagina.has_other_pages %}
+    <nav class="d-flex justify-content-center gap-2 mt-4">
+      {% if pagina.has_previous %}<a class="btn btn-outline-secondary" href="?estado={{ estado|default:'todas' }}&q={{ busqueda|urlencode }}&page={{ pagina.previous_page_number }}">Anterior</a>{% endif %}
+      <span class="align-self-center">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+      {% if pagina.has_next %}<a class="btn btn-outline-secondary" href="?estado={{ estado|default:'todas' }}&q={{ busqueda|urlencode }}&page={{ pagina.next_page_number }}">Siguiente</a>{% endif %}
+    </nav>
+  {% endif %}
 </div></section>
 {% endblock %}

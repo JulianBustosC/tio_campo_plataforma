@@ -20,6 +20,7 @@
         {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
         <button class="btn btn-tio btn-lg w-100" type="submit">Ingresar</button>
       </form>
+      <p class="text-center mt-4 mb-0">¿No tienes cuenta? <a href="{% url 'registro' %}{% if next %}?next={{ next|urlencode }}{% endif %}">Crear cuenta</a></p>
     </div>
   </div>
 </section>

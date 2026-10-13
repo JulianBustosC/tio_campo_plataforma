@@ -1,0 +1,48 @@
+{% extends "layouts/base.html" %}
+{% block title %}Padrón de afiliados · {{ fondo.nombre }}{% endblock %}
+{% block content %}
+<section class="py-5"><div class="container">
+  <a href="{% url 'fondos:gestion_solicitudes' %}" class="d-inline-block mb-3">&larr; Volver a solicitudes</a>
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <form method="post" enctype="multipart/form-data" class="product-card p-4">
+        {% csrf_token %}
+        <h1 class="section-title">Padrón de afiliados</h1>
+        <p class="text-muted">{{ fondo.nombre }} · {{ total_afiliados }} afiliado(s) activo(s) · Verificación: {{ fondo.get_modo_verificacion_display }}{% if fondo.decision_automatica %} con decisión automática{% endif %}</p>
+        {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="{{ form.archivo.id_for_label }}">{{ form.archivo.label }}</label>
+          {{ form.archivo }}
+          <div class="form-text">{{ form.archivo.help_text }}</div>
+          {% for error in form.archivo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="form-check mb-4">
+          {{ form.desactivar_ausentes }}
+          <label class="form-check-label" for="{{ form.desactivar_ausentes.id_for_label }}">{{ form.desactivar_ausentes.label }}</label>
+        </div>
+        <button type="submit" class="btn btn-tio">Cargar padrón</button>
+
+        {% if resultado %}
+          <div class="alert {% if resultado.errores %}alert-warning{% else %}alert-success{% endif %} mt-4 mb-0">
+            {{ resultado.creados }} nuevos · {{ resultado.actualizados }} actualizados · {{ resultado.desactivados }} desactivados
+            {% if resultado.errores %}
+              <ul class="mb-0 mt-2 small">{% for error in resultado.errores|slice:":20" %}<li>{{ error }}</li>{% endfor %}</ul>
+              {% if resultado.errores|length > 20 %}<div class="small">… y {{ resultado.errores|length|add:"-20" }} errores más.</div>{% endif %}
+            {% endif %}
+          </div>
+        {% endif %}
+      </form>
+    </div>
+    <div class="col-lg-5">
+      <div class="product-card p-4">
+        <h4 class="section-title">Formato del archivo</h4>
+        <p class="small text-muted">CSV en UTF-8, separado por coma o punto y coma. Si un documento ya existe se actualiza su cupo.</p>
+        <pre class="small bg-light p-3 rounded mb-3">documento;nombre;empresa;cupo_disponible;activo
+1020304050;Ana Pérez;Tío Campo SAS;500000;si
+79888777;Luis Gómez;Tío Campo SAS;120000;si</pre>
+        <p class="small mb-0"><strong>Regla de decisión:</strong> si el documento no está en el padrón o está inactivo, se rechaza. Si el cupo cubre el pedido, aprobación total; si cubre una parte, aprobación parcial por el cupo disponible. El cupo aprobado se descuenta del padrón y se devuelve si el pedido se cancela.</p>
+      </div>
+    </div>
+  </div>
+</div></section>
+{% endblock %}

@@ -13,6 +13,7 @@ urlpatterns = [
         name="login",
     ),
     path("cuenta/logout/", auth_views.LogoutView.as_view(), name="logout"),
+    path("cuenta/", include("apps.cuentas.urls")),
     path("", include("apps.dashboard.urls")),
     path("productos/", include("apps.productos.urls")),
     path("carrito/", include("apps.carrito.urls")),

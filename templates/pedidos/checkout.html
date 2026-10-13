@@ -35,7 +35,7 @@
           </div>
           <div class="form-check mb-4">
             <input class="form-check-input" type="radio" name="metodo_pago" id="pagoNomina" value="NOMINA">
-            <label class="form-check-label" for="pagoNomina"><strong>Descuento por nómina</strong><div class="small text-muted">Después diligenciarás los datos que se enviarán al fondo de empleados.</div></label>
+            <label class="form-check-label" for="pagoNomina"><strong>Descuento por nómina</strong><div class="small text-muted">Tu fondo de empleados verificará tu vinculación y cupo. Puede aprobar el total, una parte (pagas la diferencia con otro medio) o rechazar.</div></label>
           </div>
           <button type="submit" class="btn btn-tio btn-lg w-100">Continuar <i class="bi bi-arrow-right ms-2"></i></button>
         </form>
@@ -45,7 +45,7 @@
           <h4 class="section-title mb-4">Resumen</h4>
           {% for item in items %}
             <div class="d-flex justify-content-between gap-3 mb-3">
-              <div><strong>{{ item.presentacion.producto.nombre }}</strong><div class="small text-muted">{{ item.presentacion.presentacion.nombre }} · {{ item.cantidad }} x ${{ item.precio_unitario|floatformat:0 }}</div></div>
+              <div><strong>{{ item.nombre_mostrar }}</strong><div class="small text-muted">{{ item.detalle_mostrar }} · {{ item.cantidad }} x ${{ item.precio_unitario|floatformat:0 }}</div></div>
               <strong>${{ item.subtotal|floatformat:0 }}</strong>
             </div>
           {% endfor %}

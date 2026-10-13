@@ -2,10 +2,14 @@
 {% block title %}Revisar solicitud #{{ solicitud.id }}{% endblock %}
 {% block content %}
 <section class="py-5"><div class="container">
+  <a href="{% url 'fondos:gestion_solicitudes' %}" class="d-inline-block mb-3">&larr; Volver a solicitudes</a>
   <div class="row g-4">
     <div class="col-lg-7">
       <div class="product-card p-4">
-        <h1 class="section-title">Solicitud #{{ solicitud.id }}</h1>
+        <div class="d-flex justify-content-between align-items-start gap-3">
+          <h1 class="section-title">Solicitud #{{ solicitud.id }}</h1>
+          <span class="badge text-bg-secondary fs-6">{{ solicitud.get_estado_display }}</span>
+        </div>
         <div class="row g-3 mt-1">
           <div class="col-md-6"><small class="text-muted">Solicitante</small><div class="fw-semibold">{{ solicitud.nombre_completo }}</div></div>
           <div class="col-md-6"><small class="text-muted">Documento</small><div class="fw-semibold">{{ solicitud.documento }}</div></div>
@@ -14,6 +18,15 @@
           <div class="col-md-6"><small class="text-muted">Correo</small><div>{{ solicitud.correo|default:"No informado" }}</div></div>
           <div class="col-md-6"><small class="text-muted">Teléfono</small><div>{{ solicitud.telefono|default:"No informado" }}</div></div>
         </div>
+
+        <div class="alert mt-4 mb-0" style="background:var(--crema);border:none;">
+          <strong>Verificación ({{ solicitud.fondo.get_modo_verificacion_display }}):</strong>
+          {{ solicitud.verificacion_mensaje|default:"Sin verificación automática." }}
+          {% if solicitud.afiliado %}
+            <div class="small mt-1">Padrón: {{ solicitud.afiliado.nombre|default:solicitud.afiliado.documento }} · {{ solicitud.afiliado.empresa }} · cupo actual ${{ solicitud.afiliado.cupo_disponible|floatformat:0 }}</div>
+          {% endif %}
+        </div>
+
         <h4 class="section-title mt-4">Productos</h4>
         {% if solicitud.pedido %}
           <div class="table-responsive"><table class="table"><thead><tr><th>Producto</th><th>Cant.</th><th class="text-end">Subtotal</th></tr></thead><tbody>
@@ -21,14 +34,34 @@
           </tbody></table></div>
         {% endif %}
         <div class="text-end fs-4"><strong>Solicitado: ${{ solicitud.valor_solicitado|floatformat:0 }}</strong></div>
+
+        <h4 class="section-title mt-4">Historial</h4>
+        <ul class="list-unstyled small mb-0">
+          {% for evento in solicitud.historial.all %}
+            <li class="mb-1">{{ evento.fecha|date:"d/m/Y H:i" }} · <strong>{{ evento.get_evento_display }}</strong>{% if evento.estado %} · {{ evento.estado }}{% endif %}{% if evento.usuario %} · {{ evento.usuario }}{% endif %}{% if evento.detalle.mensaje %} · {{ evento.detalle.mensaje }}{% endif %}</li>
+          {% empty %}<li class="text-muted">Sin eventos.</li>{% endfor %}
+        </ul>
       </div>
     </div>
     <div class="col-lg-5">
-      <form method="post" class="product-card p-4">
-        {% csrf_token %}<h4 class="section-title mb-3">Respuesta del fondo</h4>
-        {% for field in form %}<div class="mb-3"><label class="form-label fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>{% endfor %}
-        <button type="submit" class="btn btn-tio w-100">Guardar respuesta</button>
-      </form>
+      {% if form %}
+        <form method="post" class="product-card p-4">
+          {% csrf_token %}<h4 class="section-title mb-3">Respuesta del fondo</h4>
+          {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+          {% for field in form %}<div class="mb-3"><label class="form-label fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>{% endfor %}
+          <div class="small text-muted mb-3">Aprobación total: valor = solicitado. Parcial: valor menor al solicitado y dentro del cupo. Rechazo: la persona no está vinculada o no tiene cupo.</div>
+          <button type="submit" class="btn btn-tio w-100">Guardar respuesta</button>
+        </form>
+      {% else %}
+        <div class="product-card p-4">
+          <h4 class="section-title mb-3">Decisión registrada</h4>
+          <p class="mb-1"><strong>{{ solicitud.get_estado_display }}</strong> · {{ solicitud.get_origen_decision_display }}{% if solicitud.decidido_por %} ({{ solicitud.decidido_por }}){% endif %}</p>
+          <p class="mb-1">Valor aprobado: ${{ solicitud.valor_aprobado|default:0|floatformat:0 }}</p>
+          <p class="mb-1">Cupo reportado: {% if solicitud.cupo_disponible_reportado != None %}${{ solicitud.cupo_disponible_reportado|floatformat:0 }}{% else %}—{% endif %}</p>
+          <p class="mb-1">Referencia: {{ solicitud.referencia_fondo|default:"—" }}</p>
+          <p class="mb-0 text-muted small">{{ solicitud.fecha_respuesta|date:"d/m/Y H:i" }}</p>
+        </div>
+      {% endif %}
     </div>
   </div>
 </div></section>

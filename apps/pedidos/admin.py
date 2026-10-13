@@ -8,6 +8,7 @@ class PedidoItemInline(admin.TabularInline):
     can_delete = False
     readonly_fields = (
         "producto_presentacion",
+        "combo",
         "producto_nombre",
         "referencia",
         "presentacion",
@@ -25,12 +26,23 @@ class PedidoAdmin(admin.ModelAdmin):
         "metodo_pago",
         "estado",
         "total",
+        "valor_nomina",
         "ciudad",
         "created_at",
     )
     list_filter = ("metodo_pago", "estado", "created_at")
     search_fields = ("numero", "usuario__username", "usuario__email")
-    readonly_fields = ("numero", "carrito", "subtotal", "total", "created_at", "updated_at")
+    readonly_fields = (
+        "numero",
+        "carrito",
+        "subtotal",
+        "total",
+        "valor_nomina",
+        "metodo_pago_saldo",
+        "created_at",
+        "updated_at",
+    )
+    list_select_related = ("usuario",)
     inlines = [PedidoItemInline]
 
 

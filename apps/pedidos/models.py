@@ -63,6 +63,25 @@ class Pedido(models.Model):
         ),
     ]
 
+    METODOS_PAGO_SALDO = [
+        (METODO_ELECTRONICO, "Pago electrónico"),
+        (METODO_OTRO, "Otro medio de pago"),
+    ]
+
+    # Estados desde los que el comprador puede cancelar.
+    ESTADOS_CANCELABLES = (
+        ESTADO_PENDIENTE_PAGO,
+        ESTADO_PENDIENTE_SOLICITUD_NOMINA,
+        ESTADO_APROBADO_PARCIAL,
+        ESTADO_RECHAZADO_NOMINA,
+    )
+
+    # Estados en los que el fondo no cubrió todo y hay saldo por definir.
+    ESTADOS_CON_SALDO_POR_DEFINIR = (
+        ESTADO_APROBADO_PARCIAL,
+        ESTADO_RECHAZADO_NOMINA,
+    )
+
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -116,6 +135,21 @@ class Pedido(models.Model):
         blank=True,
     )
 
+    # Parte del total cubierta por el fondo de empleados (descuento por nómina).
+    valor_nomina = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+    )
+
+    # Medio con el que se paga el saldo no cubierto por nómina
+    # (aprobación parcial o rechazo).
+    metodo_pago_saldo = models.CharField(
+        max_length=20,
+        choices=METODOS_PAGO_SALDO,
+        blank=True,
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
@@ -128,6 +162,10 @@ class Pedido(models.Model):
         verbose_name = "Pedido"
         verbose_name_plural = "Pedidos"
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["usuario", "-created_at"]),
+            models.Index(fields=["estado"]),
+        ]
 
     def save(self, *args, **kwargs):
 
@@ -150,6 +188,24 @@ class Pedido(models.Model):
     def __str__(self):
 
         return self.numero
+
+    @property
+    def saldo_pendiente(self):
+
+        return self.total - (self.valor_nomina or 0)
+
+    @property
+    def puede_cancelarse(self):
+
+        return self.estado in self.ESTADOS_CANCELABLES
+
+    @property
+    def requiere_definir_saldo(self):
+
+        return (
+            self.estado in self.ESTADOS_CON_SALDO_POR_DEFINIR
+            and not self.metodo_pago_saldo
+        )
 
 
 class PedidoItem(models.Model):

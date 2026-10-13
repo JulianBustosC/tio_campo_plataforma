@@ -68,60 +68,78 @@ class SolicitudDescuentoNominaForm(forms.ModelForm):
         return empresa
 
 
-class RespuestaFondoForm(forms.ModelForm):
-    class Meta:
-        model = SolicitudDescuentoNomina
-        fields = [
-            "vinculacion_validada",
-            "estado",
-            "cupo_disponible_reportado",
-            "valor_aprobado",
-            "referencia_fondo",
-            "respuesta_fondo",
-        ]
-        widgets = {
-            "vinculacion_validada": forms.Select(
-                choices=(("", "Seleccione"), ("True", "Sí"), ("False", "No")),
-                attrs={"class": "form-select"},
-            ),
-            "estado": forms.Select(attrs={"class": "form-select"}),
-            "cupo_disponible_reportado": forms.NumberInput(attrs={"class": "form-control", "min": "0", "step": "0.01"}),
-            "valor_aprobado": forms.NumberInput(attrs={"class": "form-control", "min": "0", "step": "0.01"}),
-            "referencia_fondo": forms.TextInput(attrs={"class": "form-control"}),
-            "respuesta_fondo": forms.Textarea(attrs={"class": "form-control", "rows": 4}),
-        }
-        labels = {
-            "vinculacion_validada": "¿La persona trabaja/está afiliada con la entidad?",
-            "estado": "Decisión",
-            "cupo_disponible_reportado": "Cupo disponible",
-            "valor_aprobado": "Valor aprobado",
-            "referencia_fondo": "Referencia interna del fondo",
-            "respuesta_fondo": "Observaciones del fondo",
-        }
+class RespuestaFondoForm(forms.Form):
+    """Decisión del gestor. No guarda nada: la vista delega en services.aplicar_decision."""
+
+    vinculacion_validada = forms.TypedChoiceField(
+        label="¿La persona trabaja/está afiliada con la entidad?",
+        choices=(("", "Seleccione"), ("True", "Sí"), ("False", "No")),
+        coerce=lambda v: v == "True",
+        empty_value=None,
+        required=False,
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    estado = forms.ChoiceField(
+        label="Decisión",
+        choices=[("", "Seleccione")] + [
+            c for c in SolicitudDescuentoNomina.ESTADOS
+            if c[0] != SolicitudDescuentoNomina.ESTADO_PENDIENTE
+        ],
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    cupo_disponible_reportado = forms.DecimalField(
+        label="Cupo disponible",
+        required=False,
+        min_value=0,
+        max_digits=12,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={"class": "form-control", "min": "0", "step": "0.01"}),
+    )
+    valor_aprobado = forms.DecimalField(
+        label="Valor aprobado",
+        required=False,
+        min_value=0,
+        max_digits=12,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={"class": "form-control", "min": "0", "step": "0.01"}),
+    )
+    referencia_fondo = forms.CharField(
+        label="Referencia interna del fondo",
+        required=False,
+        max_length=100,
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+    respuesta_fondo = forms.CharField(
+        label="Observaciones del fondo",
+        required=False,
+        widget=forms.Textarea(attrs={"class": "form-control", "rows": 4}),
+    )
+
+    def __init__(self, *args, solicitud, **kwargs):
+        self.solicitud = solicitud
+        kwargs.setdefault("initial", {
+            "vinculacion_validada": {True: "True", False: "False"}.get(solicitud.vinculacion_validada, ""),
+            "cupo_disponible_reportado": solicitud.cupo_disponible_reportado,
+            "referencia_fondo": solicitud.referencia_fondo,
+        })
+        super().__init__(*args, **kwargs)
 
     def clean(self):
         cleaned = super().clean()
+        S = SolicitudDescuentoNomina
         vinculacion = cleaned.get("vinculacion_validada")
         estado = cleaned.get("estado")
         cupo = cleaned.get("cupo_disponible_reportado")
         aprobado = cleaned.get("valor_aprobado")
-        solicitado = self.instance.valor_solicitado or Decimal("0")
+        solicitado = self.solicitud.valor_solicitado or Decimal("0")
 
         if vinculacion is None:
             self.add_error("vinculacion_validada", "Debe validar la vinculación del solicitante.")
 
-        if estado == SolicitudDescuentoNomina.ESTADO_PENDIENTE:
-            self.add_error("estado", "Debe registrar una decisión final.")
-
-        if vinculacion is False and estado != SolicitudDescuentoNomina.ESTADO_RECHAZADA:
+        if vinculacion is False and estado and estado != S.ESTADO_RECHAZADA:
             self.add_error("estado", "Si la persona no está vinculada, la solicitud debe rechazarse.")
 
-        if estado in (
-            SolicitudDescuentoNomina.ESTADO_APROBADA,
-            SolicitudDescuentoNomina.ESTADO_APROBADA_PARCIAL,
-        ):
-            if vinculacion is not True:
-                self.add_error("vinculacion_validada", "La vinculación debe estar validada para aprobar.")
+        if estado in (S.ESTADO_APROBADA, S.ESTADO_APROBADA_PARCIAL):
             if cupo is None:
                 self.add_error("cupo_disponible_reportado", "Informe el cupo disponible.")
             if aprobado is None or aprobado <= 0:
@@ -130,15 +148,33 @@ class RespuestaFondoForm(forms.ModelForm):
                 self.add_error("valor_aprobado", "El valor aprobado no puede superar el valor solicitado.")
             elif cupo is not None and aprobado > cupo:
                 self.add_error("valor_aprobado", "El valor aprobado no puede superar el cupo reportado.")
-
-        if estado == SolicitudDescuentoNomina.ESTADO_APROBADA and aprobado != solicitado:
-            self.add_error("valor_aprobado", "Para aprobación total, el valor aprobado debe ser igual al solicitado.")
-
-        if estado == SolicitudDescuentoNomina.ESTADO_APROBADA_PARCIAL and aprobado is not None:
-            if aprobado >= solicitado:
+            elif estado == S.ESTADO_APROBADA and aprobado != solicitado:
+                self.add_error("valor_aprobado", "Para aprobación total, el valor aprobado debe ser igual al solicitado.")
+            elif estado == S.ESTADO_APROBADA_PARCIAL and aprobado >= solicitado:
                 self.add_error("valor_aprobado", "Para aprobación parcial, el valor debe ser menor al solicitado.")
 
-        if estado == SolicitudDescuentoNomina.ESTADO_RECHAZADA:
+        if estado == S.ESTADO_RECHAZADA:
             cleaned["valor_aprobado"] = Decimal("0")
 
         return cleaned
+
+
+class CargaPadronForm(forms.Form):
+    archivo = forms.FileField(
+        label="Archivo CSV del padrón",
+        help_text="Columnas: documento, cupo_disponible y opcionalmente nombre, empresa, activo.",
+        widget=forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".csv,text/csv"}),
+    )
+    desactivar_ausentes = forms.BooleanField(
+        label="Desactivar afiliados que no estén en este archivo",
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
+    )
+
+    def clean_archivo(self):
+        archivo = self.cleaned_data["archivo"]
+        if archivo.size > 10 * 1024 * 1024:
+            raise forms.ValidationError("El archivo no puede superar 10 MB.")
+        if not archivo.name.lower().endswith(".csv"):
+            raise forms.ValidationError("Cargue un archivo .csv.")
+        return archivo

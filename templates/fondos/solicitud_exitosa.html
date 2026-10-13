@@ -155,13 +155,20 @@
 
                 <p class="mb-0 mt-2">
 
-                    El fondo revisará tu solicitud y
-                    podrá aprobarla, aprobarla parcialmente
-                    o rechazarla.
-
-                    Si la aprobación es parcial, se mostrará
-                    el valor aprobado y el cupo disponible
-                    informado por el fondo.
+                    {% if solicitud.estado == "PENDIENTE" %}
+                        El fondo revisará tu solicitud y podrá aprobarla, aprobarla
+                        parcialmente o rechazarla. Te avisaremos por correo.
+                    {% elif solicitud.estado == "APROBADA" %}
+                        El fondo aprobó el valor total de tu compra
+                        (${{ solicitud.valor_aprobado|floatformat:0 }}).
+                    {% elif solicitud.estado == "APROBADA_PARCIAL" %}
+                        El fondo aprobó ${{ solicitud.valor_aprobado|floatformat:0 }}.
+                        Desde tu pedido puedes pagar la diferencia con otro medio o cancelarlo.
+                    {% else %}
+                        El fondo no aprobó el descuento por nómina
+                        {% if solicitud.respuesta_fondo %}({{ solicitud.respuesta_fondo }}){% endif %}.
+                        Desde tu pedido puedes pagar con otro medio o cancelarlo.
+                    {% endif %}
 
                 </p>
 
@@ -180,16 +187,20 @@
                 "
             >
 
-                <a
-                    href="{% url 'carrito:detalle' %}"
-                    class="btn btn-outline-secondary rounded-pill px-4"
-                >
+                {% if solicitud.pedido %}
 
-                    <i class="bi bi-cart me-2"></i>
+                    <a
+                        href="{% url 'pedidos:confirmacion' solicitud.pedido.id %}"
+                        class="btn btn-outline-secondary rounded-pill px-4"
+                    >
 
-                    Ver carrito
+                        <i class="bi bi-receipt me-2"></i>
 
-                </a>
+                        Ver pedido
+
+                    </a>
+
+                {% endif %}
 
 
                 <a

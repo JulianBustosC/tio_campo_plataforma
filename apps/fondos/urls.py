@@ -10,4 +10,5 @@ urlpatterns = [
     path("solicitud/<int:solicitud_id>/", views.detalle_solicitud, name="detalle_solicitud"),
     path("gestion/", views.gestion_solicitudes, name="gestion_solicitudes"),
     path("gestion/<int:solicitud_id>/", views.gestion_detalle, name="gestion_detalle"),
+    path("gestion/fondo/<int:fondo_id>/padron/", views.gestion_padron, name="gestion_padron"),
 ]

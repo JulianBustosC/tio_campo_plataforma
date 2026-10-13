@@ -1,20 +1,17 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from apps.carrito.views import obtener_carrito
 
-from .models import Pedido, PedidoItem
+from .models import Pedido
+from .services import PedidoError, cancelar_pedido, crear_pedido_desde_carrito, definir_pago_saldo
 
 
 @login_required
 def checkout(request):
-
-    carrito = obtener_carrito(
-        request
-    )
-
+    carrito = obtener_carrito(request)
     items = (
         carrito.items
         .select_related(
@@ -27,459 +24,85 @@ def checkout(request):
     )
 
     if not items.exists():
-
-        messages.warning(
-            request,
-            "Tu carrito está vacío.",
-        )
-
-        return redirect(
-            "carrito:detalle"
-        )
-
-
-    total = carrito.total
-
+        messages.warning(request, "Tu carrito está vacío.")
+        return redirect("carrito:detalle")
 
     if request.method == "POST":
-
-        metodo_pago = (
-            request.POST
-            .get(
-                "metodo_pago",
-                "",
-            )
-            .strip()
-        )
-
-        direccion = (
-            request.POST
-            .get(
-                "direccion_entrega",
-                "",
-            )
-            .strip()
-        )
-
-        ciudad = (
-            request.POST
-            .get(
-                "ciudad",
-                "",
-            )
-            .strip()
-        )
-
-        observaciones = (
-            request.POST
-            .get(
-                "observaciones",
-                "",
-            )
-            .strip()
-        )
-
-
-        metodos_validos = {
-            codigo
-            for codigo, _
-            in Pedido.METODOS_PAGO
-        }
-
-
-        if metodo_pago not in metodos_validos:
-
-            messages.error(
-                request,
-                "Debes seleccionar un medio de pago válido.",
-            )
-
-            return redirect(
-                "pedidos:checkout"
-            )
-
-
-        if not direccion:
-
-            messages.error(
-                request,
-                "Debes ingresar la dirección de entrega.",
-            )
-
-            return redirect(
-                "pedidos:checkout"
-            )
-
-
-        if not ciudad:
-
-            messages.error(
-                request,
-                "Debes ingresar la ciudad de entrega.",
-            )
-
-            return redirect(
-                "pedidos:checkout"
-            )
-
-
-        with transaction.atomic():
-
-            carrito = (
-                type(carrito)
-                .objects
-                .select_for_update()
-                .get(
-                    pk=carrito.pk
-                )
-            )
-
-
-            items_bloqueados = list(
-
-                carrito.items
-                .select_for_update()
-                .select_related(
-                    "presentacion__producto",
-                    "presentacion__presentacion",
-                    "combo",
-                )
-
-            )
-
-
-            if (
-                not carrito.activo
-                or
-                not items_bloqueados
-            ):
-
-                messages.warning(
-                    request,
-                    "Este carrito ya fue procesado.",
-                )
-
-                return redirect(
-                    "carrito:detalle"
-                )
-
-
-            # ===============================
-            # VALIDAR PRODUCTOS Y COMBOS
-            # ===============================
-
-            for item in items_bloqueados:
-
-                if item.combo_id:
-
-                    combo = item.combo
-
-                    if not combo.activo:
-
-                        messages.error(
-                            request,
-                            f"El combo {combo.nombre} ya no está disponible.",
-                        )
-
-                        return redirect(
-                            "carrito:detalle"
-                        )
-
-
-                    if combo.stock < item.cantidad:
-
-                        messages.error(
-                            request,
-                            (
-                                f"El combo {combo.nombre} "
-                                f"solo tiene {combo.stock} "
-                                "unidad(es) disponibles."
-                            ),
-                        )
-
-                        return redirect(
-                            "carrito:detalle"
-                        )
-
-
-                    item.precio_unitario = (
-                        combo.precio
-                    )
-
-
-                else:
-
-                    presentacion = (
-                        item.presentacion
-                    )
-
-
-                    if (
-                        not presentacion
-                        or
-                        not presentacion.activo
-                        or
-                        not presentacion.producto.activo
-                    ):
-
-                        messages.error(
-                            request,
-                            (
-                                "Uno de los productos "
-                                "del carrito ya no está disponible."
-                            ),
-                        )
-
-                        return redirect(
-                            "carrito:detalle"
-                        )
-
-
-                    item.precio_unitario = (
-                        presentacion.precio
-                    )
-
-
-                item.save(
-                    update_fields=[
-                        "precio_unitario",
-                        "updated_at",
-                    ]
-                )
-
-
-            total = sum(
-                item.subtotal
-                for item
-                in items_bloqueados
-            )
-
-
-            if (
-                metodo_pago
-                ==
-                Pedido.METODO_NOMINA
-            ):
-
-                estado = (
-                    Pedido
-                    .ESTADO_PENDIENTE_SOLICITUD_NOMINA
-                )
-
-            else:
-
-                estado = (
-                    Pedido
-                    .ESTADO_PENDIENTE_PAGO
-                )
-
-
-            pedido = Pedido.objects.create(
-
-                usuario=request.user,
-
+        try:
+            pedido = crear_pedido_desde_carrito(
                 carrito=carrito,
-
-                metodo_pago=metodo_pago,
-
-                estado=estado,
-
-                subtotal=total,
-
-                total=total,
-
-                direccion_entrega=direccion,
-
-                ciudad=ciudad,
-
-                observaciones=observaciones,
+                usuario=request.user,
+                metodo_pago=request.POST.get("metodo_pago", "").strip(),
+                direccion=request.POST.get("direccion_entrega", "").strip(),
+                ciudad=request.POST.get("ciudad", "").strip(),
+                observaciones=request.POST.get("observaciones", "").strip(),
             )
+        except PedidoError as exc:
+            messages.error(request, str(exc))
+            return redirect("pedidos:checkout")
 
+        if pedido.metodo_pago == Pedido.METODO_NOMINA:
+            return redirect("fondos:solicitar_descuento_nomina", pedido_id=pedido.id)
 
-            # ===============================
-            # COPIAR ITEMS AL PEDIDO
-            # ===============================
-
-            for item in items_bloqueados:
-
-                if item.combo_id:
-
-                    PedidoItem.objects.create(
-
-                        pedido=pedido,
-
-                        combo=item.combo,
-
-                        producto_presentacion=None,
-
-                        producto_nombre=(
-                            item.combo.nombre
-                        ),
-
-                        referencia=(
-                            item.combo.codigo
-                        ),
-
-                        presentacion=(
-                            "Combo promocional"
-                        ),
-
-                        cantidad=item.cantidad,
-
-                        precio_unitario=(
-                            item.precio_unitario
-                        ),
-
-                        subtotal=(
-                            item.subtotal
-                        ),
-                    )
-
-
-                else:
-
-                    PedidoItem.objects.create(
-
-                        pedido=pedido,
-
-                        combo=None,
-
-                        producto_presentacion=(
-                            item.presentacion
-                        ),
-
-                        producto_nombre=(
-                            item
-                            .presentacion
-                            .producto
-                            .nombre
-                        ),
-
-                        referencia=(
-                            item
-                            .presentacion
-                            .codigo
-                        ),
-
-                        presentacion=(
-                            item
-                            .presentacion
-                            .presentacion
-                            .nombre
-                        ),
-
-                        cantidad=item.cantidad,
-
-                        precio_unitario=(
-                            item.precio_unitario
-                        ),
-
-                        subtotal=(
-                            item.subtotal
-                        ),
-                    )
-
-
-            carrito.activo = False
-
-            carrito.save(
-                update_fields=[
-                    "activo",
-                    "updated_at",
-                ]
-            )
-
-
-        # ===================================
-        # DESCUENTO POR NÓMINA
-        # ===================================
-
-        if (
-            metodo_pago
-            ==
-            Pedido.METODO_NOMINA
-        ):
-
-            return redirect(
-                "fondos:solicitar_descuento_nomina",
-                pedido_id=pedido.id,
-            )
-
-
-        messages.success(
-            request,
-            (
-                f"Pedido {pedido.numero} "
-                "creado correctamente."
-            ),
-        )
-
-        return redirect(
-            "pedidos:confirmacion",
-            pedido_id=pedido.id,
-        )
-
+        messages.success(request, f"Pedido {pedido.numero} creado correctamente.")
+        return redirect("pedidos:confirmacion", pedido_id=pedido.id)
 
     return render(
         request,
         "pedidos/checkout.html",
-        {
-            "carrito": carrito,
-            "items": items,
-            "total": total,
-        },
+        {"carrito": carrito, "items": items, "total": carrito.total},
     )
 
 
 @login_required
-def confirmacion(
-    request,
-    pedido_id,
-):
-
+def confirmacion(request, pedido_id):
     pedido = get_object_or_404(
-
-        Pedido.objects
-        .prefetch_related(
-            "items"
-        ),
-
+        Pedido.objects.prefetch_related("items").select_related("solicitud_nomina"),
         id=pedido_id,
-
         usuario=request.user,
     )
-
     return render(
         request,
         "pedidos/confirmacion.html",
-        {
-            "pedido": pedido,
-        },
+        {"pedido": pedido, "metodos_saldo": Pedido.METODOS_PAGO_SALDO},
     )
+
+
+@login_required
+@require_POST
+def pagar_saldo(request, pedido_id):
+    pedido = get_object_or_404(Pedido, id=pedido_id, usuario=request.user)
+    try:
+        pedido = definir_pago_saldo(pedido, request.POST.get("metodo_pago_saldo", ""))
+    except PedidoError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(
+            request,
+            f"Listo. El saldo de ${pedido.saldo_pendiente:,.0f} quedó pendiente de pago "
+            f"por {pedido.get_metodo_pago_saldo_display().lower()}.",
+        )
+    return redirect("pedidos:confirmacion", pedido_id=pedido.id)
+
+
+@login_required
+@require_POST
+def cancelar(request, pedido_id):
+    pedido = get_object_or_404(Pedido, id=pedido_id, usuario=request.user)
+    try:
+        cancelar_pedido(pedido, usuario=request.user)
+    except PedidoError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.info(request, f"El pedido {pedido.numero} fue cancelado.")
+    return redirect("pedidos:confirmacion", pedido_id=pedido.id)
 
 
 @login_required
 def mis_pedidos(request):
-
     pedidos = (
-
         Pedido.objects
-        .filter(
-            usuario=request.user
-        )
-        .prefetch_related(
-            "items"
-        )
-        .order_by(
-            "-created_at"
-        )
-
+        .filter(usuario=request.user)
+        .order_by("-created_at")
     )
-
-    return render(
-        request,
-        "pedidos/mis_pedidos.html",
-        {
-            "pedidos": pedidos,
-        },
-    )
+    return render(request, "pedidos/mis_pedidos.html", {"pedidos": pedidos})

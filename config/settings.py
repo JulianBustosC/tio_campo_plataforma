@@ -76,6 +76,7 @@ INSTALLED_APPS = [
     "apps.carrito",
     "apps.fondos",
     "apps.pedidos",
+    "apps.cuentas",
 ]
 
 
@@ -84,6 +85,9 @@ INSTALLED_APPS = [
 # =====================================================
 
 MIDDLEWARE = [
+
+    # Debe ir primero para aplicar cabeceras de seguridad a todas las respuestas.
+    "django.middleware.security.SecurityMiddleware",
 
     "django.contrib.sessions.middleware.SessionMiddleware",
 
@@ -96,8 +100,6 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
 
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    
-    'django.middleware.security.SecurityMiddleware',
 ]
 
 
@@ -135,6 +137,8 @@ TEMPLATES = [
 
                 "django.contrib.messages.context_processors.messages",
 
+                "apps.dashboard.context_processors.navegacion",
+
             ],
         },
     },
@@ -152,18 +156,32 @@ WSGI_APPLICATION = "config.wsgi.application"
 # BASE DE DATOS
 # =====================================================
 
-DATABASES = {
+# SQLite para desarrollo. En producción defina DB_NAME (y demás variables)
+# para usar PostgreSQL, que soporta bloqueos de fila (select_for_update)
+# y concurrencia real en el control de stock y cupos.
 
-    "default": {
+if os.getenv("DB_NAME"):
 
-        "ENGINE":
-            "django.db.backends.sqlite3",
-
-        "NAME":
-            BASE_DIR / "db.sqlite3",
+    DATABASES = {
+        "default": {
+            "ENGINE": os.getenv("DB_ENGINE", "django.db.backends.postgresql"),
+            "NAME": os.getenv("DB_NAME"),
+            "USER": os.getenv("DB_USER", ""),
+            "PASSWORD": os.getenv("DB_PASSWORD", ""),
+            "HOST": os.getenv("DB_HOST", "localhost"),
+            "PORT": os.getenv("DB_PORT", "5432"),
+            "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "60")),
+        }
     }
 
-}
+else:
+
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 
 # =====================================================
@@ -345,3 +363,58 @@ PUBLIC_BASE_URL = os.getenv(
     "PUBLIC_BASE_URL",
     "http://127.0.0.1:8000",
 )
+
+
+# =====================================================
+# FONDOS DE EMPLEADOS
+# =====================================================
+
+# Tiempo máximo (segundos) para esperar la verificación en línea de un fondo.
+FONDOS_API_TIMEOUT = int(
+    os.getenv(
+        "FONDOS_API_TIMEOUT",
+        "8",
+    )
+)
+
+
+# =====================================================
+# SEGURIDAD EN PRODUCCIÓN
+# =====================================================
+
+if not DEBUG:
+
+    if SECRET_KEY.startswith("django-insecure"):
+        raise RuntimeError("Defina DJANGO_SECRET_KEY en el entorno de producción.")
+
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "1") == "1"
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "3600"))
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    CSRF_TRUSTED_ORIGINS = [
+        origen.strip()
+        for origen in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
+        if origen.strip()
+    ]
+    STATIC_ROOT = BASE_DIR / "staticfiles"
+
+
+# =====================================================
+# LOGS
+# =====================================================
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {"class": "logging.StreamHandler"},
+    },
+    "loggers": {
+        "apps": {
+            "handlers": ["console"],
+            "level": os.getenv("APP_LOG_LEVEL", "INFO"),
+        },
+    },
+}

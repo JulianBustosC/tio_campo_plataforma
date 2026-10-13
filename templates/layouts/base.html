@@ -744,74 +744,22 @@
                 </li>
 
 
-                <!-- LÁCTEOS -->
+                <!-- CATEGORÍAS (dinámicas desde la base de datos) -->
 
-                <li class="nav-item">
+                {% for categoria in categorias_menu %}
 
-                    <a
-                        class="nav-link"
-                        href="{% url 'productos:categoria' 1 %}"
-                    >
-                        Lácteos
-                    </a>
+                    <li class="nav-item">
 
-                </li>
+                        <a
+                            class="nav-link"
+                            href="{% url 'productos:categoria' categoria.id %}"
+                        >
+                            {{ categoria.nombre }}
+                        </a>
 
+                    </li>
 
-                <!-- CÁRNICOS -->
-
-                <li class="nav-item">
-
-                    <a
-                        class="nav-link"
-                        href="{% url 'productos:categoria' 2 %}"
-                    >
-                        Cárnicos
-                    </a>
-
-                </li>
-
-
-                <!-- PANADERÍA -->
-
-                <li class="nav-item">
-
-                    <a
-                        class="nav-link"
-                        href="{% url 'productos:categoria' 3 %}"
-                    >
-                        Panadería
-                    </a>
-
-                </li>
-
-
-                <!-- SNACKS -->
-
-                <li class="nav-item">
-
-                    <a
-                        class="nav-link"
-                        href="{% url 'productos:categoria' 4 %}"
-                    >
-                        Snacks
-                    </a>
-
-                </li>
-
-
-                <!-- BEBIDAS -->
-
-                <li class="nav-item">
-
-                    <a
-                        class="nav-link"
-                        href="{% url 'productos:categoria' 5 %}"
-                    >
-                        Bebidas
-                    </a>
-
-                </li>
+                {% endfor %}
 
 
                 <!-- PROMOCIONES -->
@@ -854,6 +802,10 @@
                         <i class="bi bi-cart3 me-1"></i>
 
                         Carrito
+
+                        {% if cantidad_carrito %}
+                            <span class="badge rounded-pill text-bg-warning ms-1">{{ cantidad_carrito }}</span>
+                        {% endif %}
 
                     </a>
 
@@ -929,6 +881,20 @@
                             href="{% url 'login' %}"
                         >
                             Ingresar
+                        </a>
+
+                    </li>
+
+
+                    <!-- REGISTRO -->
+
+                    <li class="nav-item">
+
+                        <a
+                            class="nav-link"
+                            href="{% url 'registro' %}"
+                        >
+                            Crear cuenta
                         </a>
 
                     </li>
@@ -1051,7 +1017,7 @@
 
                 <p>
 
-                    <a href="#">
+                    <a href="{% url 'fondos:mis_solicitudes' %}">
                         Fondos de empleados
                     </a>
 

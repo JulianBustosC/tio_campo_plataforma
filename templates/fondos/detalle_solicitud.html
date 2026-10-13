@@ -16,6 +16,7 @@
       <div class="col-md-8"><small class="text-muted">Respuesta del fondo</small><div>{{ solicitud.respuesta_fondo|default:"Pendiente de respuesta." }}</div></div>
     </div>
     {% if solicitud.pedido %}
+      <a class="btn btn-tio mt-4" href="{% url 'pedidos:confirmacion' solicitud.pedido.id %}">Ver pedido {{ solicitud.pedido.numero }}</a>
       <h4 class="section-title mt-5">Productos del pedido {{ solicitud.pedido.numero }}</h4>
       <div class="table-responsive"><table class="table"><thead><tr><th>Producto</th><th>Presentación</th><th>Cantidad</th><th class="text-end">Subtotal</th></tr></thead><tbody>
         {% for item in solicitud.pedido.items.all %}<tr><td>{{ item.producto_nombre }}</td><td>{{ item.presentacion }}</td><td>{{ item.cantidad }}</td><td class="text-end">${{ item.subtotal|floatformat:0 }}</td></tr>{% endfor %}
