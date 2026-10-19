@@ -1,0 +1,96 @@
+{% extends "layouts/base.html" %}
+{% block title %}Reporte de nómina · {{ fondo.nombre }}{% endblock %}
+{% block content %}
+<section class="py-5"><div class="container">
+  <a href="{% url 'fondos:gestion_solicitudes' %}" class="d-inline-block mb-3">&larr; Volver a solicitudes</a>
+
+  <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div>
+      <h1 class="section-title mb-1">Reporte de descuentos por nómina</h1>
+      <div class="text-muted">{{ fondo.nombre }}</div>
+    </div>
+    <form method="get" class="d-flex gap-2 align-items-end">
+      <div>
+        <label class="form-label small mb-1" for="mes">Mes</label>
+        <input type="month" id="mes" name="mes" value="{{ periodo|date:'Y-m' }}" class="form-control">
+      </div>
+      <button class="btn btn-outline-secondary" type="submit">Ver</button>
+    </form>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-4"><div class="product-card p-4 h-100">
+      <div class="small text-muted">Periodo</div>
+      <div class="fs-4 fw-bold">{{ periodo|date:"F Y"|capfirst }}</div>
+      {% if corte %}
+        <span class="badge text-bg-success mt-2"><i class="bi bi-lock-fill"></i> Corte cerrado {{ corte.generado_en|date:"d/m/Y" }}</span>
+        {% if corte.enviado_en %}<div class="small text-muted mt-1">Enviado al fondo el {{ corte.enviado_en|date:"d/m/Y H:i" }}</div>{% endif %}
+      {% else %}
+        <span class="badge text-bg-warning mt-2">Vista previa · sin cerrar</span>
+      {% endif %}
+    </div></div>
+    <div class="col-md-4"><div class="product-card p-4 h-100">
+      <div class="small text-muted">Descuentos a aplicar</div>
+      <div class="fs-4 fw-bold">{{ resumen.cantidad }}</div>
+    </div></div>
+    <div class="col-md-4"><div class="product-card p-4 h-100">
+      <div class="small text-muted">Total a descontar por nómina</div>
+      <div class="fs-4 fw-bold" style="color:var(--tc-verde)">${{ resumen.total|floatformat:"0g" }}</div>
+    </div></div>
+  </div>
+
+  <div class="d-flex flex-wrap gap-2 mb-4">
+    <a class="btn btn-tio" href="?mes={{ periodo|date:'Y-m' }}&formato=xlsx"><i class="bi bi-file-earmark-excel me-1"></i>Descargar Excel</a>
+    <a class="btn btn-outline-secondary rounded-pill" href="?mes={{ periodo|date:'Y-m' }}&formato=csv"><i class="bi bi-filetype-csv me-1"></i>Descargar CSV</a>
+    {% if not corte and resumen.cantidad %}
+      <form method="post" action="{% url 'fondos:gestion_cerrar_corte' fondo.id %}" class="d-flex gap-2 align-items-center"
+            onsubmit="return confirm('¿Cerrar el corte de {{ periodo|date:'Y-m' }}? Estas solicitudes no volverán a salir en otros meses.');">
+        {% csrf_token %}
+        <input type="hidden" name="mes" value="{{ periodo|date:'Y-m' }}">
+        <div class="form-check ms-2">
+          <input class="form-check-input" type="checkbox" name="enviar" value="1" id="enviar" checked>
+          <label class="form-check-label small" for="enviar">Enviar el Excel al correo del fondo</label>
+        </div>
+        <button type="submit" class="btn btn-success rounded-pill"><i class="bi bi-lock me-1"></i>Cerrar corte</button>
+      </form>
+    {% endif %}
+  </div>
+
+  <div class="product-card p-0">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead><tr>
+          <th>Documento</th><th>Nombre</th><th>Finca</th><th>Pedido</th><th>Aprobación</th><th>Tipo</th>
+          <th class="text-end">Pedido</th><th class="text-end">A descontar</th>
+        </tr></thead>
+        <tbody>
+          {% for s in solicitudes %}
+            <tr>
+              <td>{{ s.documento_enmascarado }}</td>
+              <td>{{ s.nombre_completo }}</td>
+              <td>{{ s.finca.nombre|default:"—" }}</td>
+              <td><a href="{% url 'fondos:gestion_detalle' s.id %}">{{ s.pedido.numero }}</a></td>
+              <td>{{ s.fecha_respuesta|date:"d/m/Y" }}</td>
+              <td>{% if s.estado == "APROBADA_PARCIAL" %}Parcial{% else %}Total{% endif %}</td>
+              <td class="text-end">${{ s.valor_solicitado|floatformat:"0g" }}</td>
+              <td class="text-end fw-semibold">${{ s.valor_aprobado|floatformat:"0g" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="8" class="text-center text-muted p-4">No hay descuentos aprobados para este periodo.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p class="small text-muted mt-2">El archivo descargado incluye el documento completo para que el fondo aplique el descuento. Contiene datos personales: compártelo solo con el fondo.</p>
+
+  {% if cortes %}
+    <h2 class="h5 section-title mt-5">Cortes anteriores</h2>
+    <ul class="list-unstyled">
+      {% for c in cortes %}
+        <li class="mb-1"><a href="?mes={{ c.periodo|date:'Y-m' }}">{{ c.periodo|date:"F Y"|capfirst }}</a> · {{ c.cantidad }} descuentos · ${{ c.total|floatformat:"0g" }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</div></section>
+{% endblock %}

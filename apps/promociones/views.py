@@ -9,6 +9,7 @@ def lista_combos(request):
         Combo.objects
         .filter(
             activo=True,
+            stock__gt=0,
         )
         .order_by(
             "-destacado",

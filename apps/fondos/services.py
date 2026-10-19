@@ -20,6 +20,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import AfiliadoFondo, HistorialSolicitud, SolicitudDescuentoNomina
+from apps.core.cifrado import huella
+
 from .verificacion import calcular_decision, normalizar_documento, obtener_verificador
 
 logger = logging.getLogger(__name__)
@@ -29,10 +31,58 @@ class DecisionInvalida(Exception):
     pass
 
 
+class SolicitudError(Exception):
+    pass
+
+
 ESTADOS_APROBADOS = (
     SolicitudDescuentoNomina.ESTADO_APROBADA,
     SolicitudDescuentoNomina.ESTADO_APROBADA_PARCIAL,
 )
+
+
+# =====================================================
+# CREACIÓN DE LA SOLICITUD
+# =====================================================
+
+def crear_solicitud(pedido, form, usuario):
+    """
+    Crea la solicitud de nómina de un pedido a partir de un SolicitudDescuentoNominaForm
+    válido (web o API) y la envía a verificación. Devuelve la solicitud actualizada.
+    """
+    from apps.pedidos.models import Pedido
+
+    with transaction.atomic():
+        pedido = Pedido.objects.select_for_update().get(pk=pedido.pk)
+        if pedido.usuario_id != usuario.id or pedido.metodo_pago != Pedido.METODO_NOMINA:
+            raise SolicitudError("Este pedido no es de descuento por nómina.")
+        if SolicitudDescuentoNomina.objects.filter(pedido=pedido).exists():
+            raise SolicitudError("Este pedido ya tiene una solicitud de nómina.")
+        if pedido.estado != Pedido.ESTADO_PENDIENTE_SOLICITUD_NOMINA:
+            raise SolicitudError("Este pedido no admite una nueva solicitud de nómina.")
+
+        solicitud = form.save(commit=False)
+        solicitud.usuario = usuario
+        solicitud.pedido = pedido
+        solicitud.valor_solicitado = pedido.total
+        solicitud.estado = SolicitudDescuentoNomina.ESTADO_PENDIENTE
+        solicitud.autorizacion_datos = True
+        solicitud.autorizacion_fecha = timezone.now()
+        solicitud.autorizacion_version = settings.POLITICA_DATOS_VERSION
+        solicitud.save()
+        registrar_historial(solicitud, HistorialSolicitud.EVENTO_CREADA, usuario=usuario)
+
+        pedido.estado = Pedido.ESTADO_EN_REVISION_NOMINA
+        campos = ["estado", "updated_at"]
+        if solicitud.finca_id:
+            # Con nómina se entrega en la finca elegida.
+            pedido.direccion_entrega = f"Finca {solicitud.finca.nombre}"[:250]
+            pedido.ciudad = (solicitud.finca.municipio or pedido.ciudad or "")[:120]
+            campos += ["direccion_entrega", "ciudad"]
+        pedido.save(update_fields=campos)
+
+    # Fuera de la transacción: puede consultar un servicio externo del fondo.
+    return procesar_verificacion(solicitud.id)
 
 
 # =====================================================
@@ -287,12 +337,19 @@ def importar_padron(fondo, archivo, desactivar_ausentes=False):
         }
 
     with transaction.atomic():
-        existentes = {a.documento: a for a in AfiliadoFondo.objects.select_for_update().filter(fondo=fondo)}
+        # Se busca por huella: el documento está cifrado en la base de datos.
+        existentes = {
+            a.documento_huella: a
+            for a in AfiliadoFondo.objects.select_for_update().filter(fondo=fondo)
+        }
         nuevos, cambiados = [], []
         for documento, datos in filas.items():
-            afiliado = existentes.get(documento)
+            afiliado = existentes.get(huella(documento))
             if afiliado is None:
-                nuevos.append(AfiliadoFondo(fondo=fondo, documento=documento, **datos))
+                # bulk_create no llama a save(): la huella se asigna aquí.
+                nuevos.append(AfiliadoFondo(
+                    fondo=fondo, documento=documento, documento_huella=huella(documento), **datos
+                ))
             else:
                 for campo, valor in datos.items():
                     setattr(afiliado, campo, valor)
@@ -309,7 +366,7 @@ def importar_padron(fondo, archivo, desactivar_ausentes=False):
             resultado.desactivados = (
                 AfiliadoFondo.objects
                 .filter(fondo=fondo, activo=True)
-                .exclude(documento__in=filas.keys())
+                .exclude(documento_huella__in=[huella(d) for d in filas])
                 .update(activo=False)
             )
 

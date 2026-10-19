@@ -11,6 +11,15 @@ class Categoria(models.Model):
         blank=True
     )
 
+    icono = models.CharField(
+        max_length=40,
+        default="basket",
+        help_text=(
+            "Nombre de un ícono de Bootstrap Icons (icons.getbootstrap.com), "
+            "por ejemplo: cup-straw, egg-fried, droplet."
+        ),
+    )
+
     activo = models.BooleanField(
         default=True
     )

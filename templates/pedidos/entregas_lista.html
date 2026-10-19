@@ -1,0 +1,120 @@
+{% extends "layouts/base.html" %}
+{% block title %}Entregas · Tío Campo{% endblock %}
+
+{% block css %}
+<style>
+  .tc-pestanas { display: flex; gap: 8px; border-bottom: 2px solid var(--tc-borde); margin-bottom: 16px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+  .tc-pestanas::-webkit-scrollbar { display: none; }
+  .tc-pestanas a { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; font-weight: 600; color: var(--tc-gris); border-bottom: 3px solid transparent; margin-bottom: -2px; white-space: nowrap; }
+  .tc-pestanas a.activa { color: var(--tc-verde); border-bottom-color: var(--tc-verde); }
+  .tc-pestanas .tc-num { min-width: 24px; height: 22px; padding: 0 7px; border-radius: 999px; display: inline-grid; place-items: center; font-size: .78rem; background: var(--tc-borde); color: var(--tc-texto); }
+  .tc-pestanas a.activa .tc-num { background: var(--tc-verde); color: #fff; }
+  .tc-fila-pedido { display: block; background: #fff; border-radius: 14px; box-shadow: var(--tc-sombra); padding: 14px 16px; margin-bottom: 8px; color: inherit; }
+  .tc-fila-pedido:hover { box-shadow: var(--tc-sombra-hover); color: inherit; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+    <h1 class="h3 fw-bold mb-0" style="color:var(--tc-verde)"><i class="bi bi-truck me-2"></i>Entregas</h1>
+    <div class="small text-muted">Entregados hoy: <strong>{{ entregados_hoy }}</strong></div>
+  </div>
+
+  <nav class="tc-pestanas" aria-label="Estado de las entregas">
+    <a href="?vista=pendientes" class="{% if vista == 'pendientes' %}activa{% endif %}" {% if vista == 'pendientes' %}aria-current="page"{% endif %}>
+      <i class="bi bi-hourglass-split"></i> Por entregar <span class="tc-num">{{ total_pendientes }}</span>
+    </a>
+    <a href="?vista=entregados" class="{% if vista == 'entregados' %}activa{% endif %}" {% if vista == 'entregados' %}aria-current="page"{% endif %}>
+      <i class="bi bi-check2-circle"></i> Entregados <span class="tc-num">{{ total_entregados }}</span>
+    </a>
+  </nav>
+
+  <form method="get" class="row g-2 mb-3">
+    <input type="hidden" name="vista" value="{{ vista }}">
+    <div class="col-12 col-md-4 {% if vista == 'entregados' %}col-xl-3{% endif %}">
+      <input type="search" name="q" value="{{ busqueda }}" class="form-control" placeholder="N.º de pedido o nombre">
+    </div>
+    <div class="col-6 {% if vista == 'entregados' %}col-md-4 col-xl-2{% else %}col-md-3{% endif %}">
+      <select name="fondo" class="form-select" onchange="this.form.submit()" aria-label="Fondo">
+        <option value="">Todos los fondos</option>
+        {% for f in fondos %}<option value="{{ f.id }}" {% if fondo == f.id|stringformat:'s' %}selected{% endif %}>{{ f.nombre }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-6 {% if vista == 'entregados' %}col-md-4 col-xl-2{% else %}col-md-3{% endif %}">
+      <select name="finca" class="form-select" onchange="this.form.submit()" aria-label="Finca">
+        <option value="">Todas las fincas</option>
+        {% for f in fincas %}<option value="{{ f.id }}" {% if finca == f.id|stringformat:'s' %}selected{% endif %}>{{ f.nombre }} · {{ f.fondo.nombre }}</option>{% endfor %}
+      </select>
+    </div>
+    {% if vista == 'entregados' %}
+      <div class="col-6 col-md-5 col-xl-2">
+        <div class="input-group"><span class="input-group-text small">Desde</span><input type="date" name="desde" value="{{ desde }}" class="form-control" aria-label="Desde"></div>
+      </div>
+      <div class="col-6 col-md-5 col-xl-2">
+        <div class="input-group"><span class="input-group-text small">Hasta</span><input type="date" name="hasta" value="{{ hasta }}" class="form-control" aria-label="Hasta"></div>
+      </div>
+      <div class="col-12 col-md-2 col-xl-1"><button class="btn btn-tio w-100" type="submit" aria-label="Buscar"><i class="bi bi-search"></i></button></div>
+    {% else %}
+      <div class="col-12 col-md-2"><button class="btn btn-tio w-100" type="submit" aria-label="Buscar"><i class="bi bi-search"></i></button></div>
+    {% endif %}
+  </form>
+
+  {% for pedido in pedidos %}
+    {% with solicitud=pedido.solicitud_nomina %}
+    {% if vista == 'entregados' %}
+      <a href="{% url 'pedidos:entrega_constancia' pedido.id %}" class="tc-fila-pedido">
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <div>
+            <strong>{{ pedido.numero }}</strong>
+            <div>Recibió: {{ pedido.entrega.recibido_por }}</div>
+            <div class="small text-muted"><i class="bi bi-geo-alt"></i>
+              {% if solicitud.finca %}{{ solicitud.finca }} · {{ solicitud.fondo.nombre }}{% else %}{{ pedido.direccion_entrega }}{% if pedido.ciudad %}, {{ pedido.ciudad }}{% endif %}{% endif %}
+            </div>
+          </div>
+          <div class="text-end small">
+            <span class="badge rounded-pill" style="background:var(--tc-verde)"><i class="bi bi-check2"></i> Entregado</span>
+            {% if pedido.entrega.firma %}<span class="badge rounded-pill text-bg-light border"><i class="bi bi-pen"></i> Firmado</span>{% endif %}
+            <div class="mt-1">{{ pedido.entrega.entregado_en|date:"d/m/Y H:i" }}</div>
+            {% if pedido.entrega.entregado_por %}<div class="text-muted">por {{ pedido.entrega.entregado_por.get_full_name|default:pedido.entrega.entregado_por.username }}</div>{% endif %}
+          </div>
+        </div>
+      </a>
+    {% else %}
+      <a href="{% url 'pedidos:entrega_registrar' pedido.id %}" class="tc-fila-pedido">
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <div>
+            <strong>{{ pedido.numero }}</strong>
+            <div>{% if solicitud %}{{ solicitud.nombre_completo }}{% else %}{{ pedido.nombre_cliente }}{% endif %}</div>
+            <div class="small text-muted"><i class="bi bi-geo-alt"></i>
+              {% if solicitud.finca %}{{ solicitud.finca }} · {{ solicitud.fondo.nombre }}{% else %}{{ pedido.direccion_entrega }}{% if pedido.ciudad %}, {{ pedido.ciudad }}{% endif %}{% endif %}
+            </div>
+          </div>
+          <div class="text-end">
+            {% if pedido.requiere_firma %}<span class="badge rounded-pill" style="background:var(--tc-verde)"><i class="bi bi-pen"></i> Nómina · firma</span>{% endif %}
+            {% if pedido.estado == "PENDIENTE_PAGO" %}<span class="badge rounded-pill text-bg-warning">Cobrar ${{ pedido.saldo_pendiente|floatformat:"0g" }}</span>{% endif %}
+            <div class="fw-bold mt-1">${{ pedido.total|floatformat:"0g" }}</div>
+          </div>
+        </div>
+      </a>
+    {% endif %}
+    {% endwith %}
+  {% empty %}
+    <div class="tc-vacio">
+      {% if vista == 'entregados' %}
+        <i class="bi bi-inbox"></i><h2 class="h5 mt-3">No hay entregas con este filtro</h2>
+      {% else %}
+        <i class="bi bi-check2-circle"></i><h2 class="h5 mt-3">No hay pedidos pendientes de entrega</h2>
+      {% endif %}
+    </div>
+  {% endfor %}
+
+  {% if pagina.has_other_pages %}
+    <nav class="tc-paginacion">
+      {% if pagina.has_previous %}<a class="btn btn-outline-secondary rounded-pill" href="?vista={{ vista }}&q={{ busqueda|urlencode }}&fondo={{ fondo }}&finca={{ finca }}&desde={{ desde }}&hasta={{ hasta }}&page={{ pagina.previous_page_number }}">Anterior</a>{% endif %}
+      <span class="small text-muted">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+      {% if pagina.has_next %}<a class="btn btn-outline-secondary rounded-pill" href="?vista={{ vista }}&q={{ busqueda|urlencode }}&fondo={{ fondo }}&finca={{ finca }}&desde={{ desde }}&hasta={{ hasta }}&page={{ pagina.next_page_number }}">Siguiente</a>{% endif %}
+    </nav>
+  {% endif %}
+</div>
+{% endblock %}

@@ -2,14 +2,38 @@ from decimal import Decimal
 
 from django import forms
 
-from .models import FondoEmpleado, SolicitudDescuentoNomina
+from .models import Finca, FondoEmpleado, SolicitudDescuentoNomina
+
+
+class SelectFinca(forms.Select):
+    """Cada opción lleva su fondo (data-fondo) para filtrar la lista en el navegador."""
+
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        opcion = super().create_option(name, value, label, selected, index, subindex, attrs)
+        instancia = getattr(value, "instance", None)
+        if instancia is not None:
+            opcion["attrs"]["data-fondo"] = instancia.fondo_id
+            if instancia.indicaciones:
+                opcion["attrs"]["title"] = instancia.indicaciones
+        return opcion
 
 
 class SolicitudDescuentoNominaForm(forms.ModelForm):
+    # Autorización previa, expresa e informada (Ley 1581 de 2012, art. 9).
+    autoriza_tratamiento = forms.BooleanField(
+        required=True,
+        label="Autorizo el tratamiento de mis datos personales",
+        error_messages={
+            "required": "Para solicitar el descuento por nómina debes autorizar el tratamiento de tus datos."
+        },
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
+    )
+
     class Meta:
         model = SolicitudDescuentoNomina
         fields = [
             "fondo",
+            "finca",
             "nombre_completo",
             "documento",
             "telefono",
@@ -20,6 +44,7 @@ class SolicitudDescuentoNominaForm(forms.ModelForm):
         ]
         widgets = {
             "fondo": forms.Select(attrs={"class": "form-select"}),
+            "finca": SelectFinca(attrs={"class": "form-select"}),
             "nombre_completo": forms.TextInput(attrs={"class": "form-control", "autocomplete": "name"}),
             "documento": forms.TextInput(attrs={"class": "form-control", "autocomplete": "off"}),
             "telefono": forms.TextInput(attrs={"class": "form-control", "autocomplete": "tel"}),
@@ -30,6 +55,7 @@ class SolicitudDescuentoNominaForm(forms.ModelForm):
         }
         labels = {
             "fondo": "Fondo de empleados",
+            "finca": "Finca donde trabajas (punto de entrega)",
             "nombre_completo": "Nombre completo",
             "documento": "Número de documento",
             "telefono": "Teléfono",
@@ -43,6 +69,11 @@ class SolicitudDescuentoNominaForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["fondo"].queryset = FondoEmpleado.objects.filter(activo=True).order_by("nombre")
         self.fields["fondo"].required = True
+        self.fields["finca"].queryset = (
+            Finca.objects.filter(activo=True, fondo__activo=True).select_related("fondo").order_by("orden", "nombre")
+        )
+        self.fields["finca"].required = False
+        self.fields["finca"].empty_label = "Selecciona tu finca"
         self.fields["nombre_completo"].required = True
         self.fields["documento"].required = True
         self.fields["empresa"].required = True
@@ -66,6 +97,17 @@ class SolicitudDescuentoNominaForm(forms.ModelForm):
         if not empresa:
             raise forms.ValidationError("Debe ingresar la empresa donde trabaja.")
         return empresa
+
+    def clean(self):
+        datos = super().clean()
+        fondo, finca = datos.get("fondo"), datos.get("finca")
+        if fondo is None:
+            return datos
+        if finca is not None and finca.fondo_id != fondo.id:
+            self.add_error("finca", "Esa finca no pertenece al fondo seleccionado.")
+        elif finca is None and fondo.fincas.filter(activo=True).exists():
+            self.add_error("finca", "Selecciona la finca donde trabajas para saber dónde entregar tu pedido.")
+        return datos
 
 
 class RespuestaFondoForm(forms.Form):

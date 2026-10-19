@@ -14,7 +14,6 @@ función pura y fácil de probar.
 import json
 import logging
 import os
-import re
 import urllib.error
 import urllib.request
 from abc import ABC, abstractmethod
@@ -23,13 +22,11 @@ from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 
+from apps.core.cifrado import huella, normalizar_documento  # noqa: F401  (se re-exporta)
+
 from .models import AfiliadoFondo, FondoEmpleado, SolicitudDescuentoNomina
 
 logger = logging.getLogger(__name__)
-
-
-def normalizar_documento(documento):
-    return re.sub(r"[^0-9A-Za-z]", "", documento or "").upper()
 
 
 @dataclass(frozen=True)
@@ -100,10 +97,9 @@ class VerificadorManual(Verificador):
 @registrar(FondoEmpleado.MODO_PADRON)
 class VerificadorPadron(Verificador):
     def verificar(self, solicitud):
-        documento = normalizar_documento(solicitud.documento)
         afiliado = (
             AfiliadoFondo.objects
-            .filter(fondo=self.fondo, documento=documento)
+            .filter(fondo=self.fondo, documento_huella=huella(solicitud.documento))
             .first()
         )
         if afiliado is None:

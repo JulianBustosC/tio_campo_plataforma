@@ -1,0 +1,23 @@
+{% extends "layouts/base.html" %}
+{% block title %}Resultado del pago{% endblock %}
+{% block content %}
+<section class="py-5"><div class="container">
+  <div class="product-card p-5 text-center mx-auto" style="max-width:640px;">
+    {% if transaccion.estado == "APROBADA" %}
+      <i class="bi bi-check-circle-fill" style="font-size:4rem;color:var(--verde-principal);"></i>
+      <h1 class="section-title mt-3">¡Pago aprobado!</h1>
+      <p class="text-muted">Recibimos ${{ transaccion.monto|floatformat:0 }} para el pedido {{ pedido.numero }}.</p>
+    {% elif transaccion.estado == "PENDIENTE" %}
+      <i class="bi bi-hourglass-split" style="font-size:4rem;color:var(--dorado);"></i>
+      <h1 class="section-title mt-3">Pago en proceso</h1>
+      <p class="text-muted">Tu banco aún está confirmando el pago. Te avisaremos por correo cuando se apruebe.</p>
+    {% else %}
+      <i class="bi bi-x-circle-fill text-danger" style="font-size:4rem;"></i>
+      <h1 class="section-title mt-3">El pago no se completó</h1>
+      <p class="text-muted">Estado: {{ transaccion.get_estado_display }}. Puedes intentarlo de nuevo desde tu pedido.</p>
+    {% endif %}
+    <p class="small text-muted mb-4">Referencia: {{ transaccion.referencia }}</p>
+    <a class="btn btn-tio" href="{% url 'pedidos:confirmacion' pedido.id %}">Ver pedido</a>
+  </div>
+</div></section>
+{% endblock %}

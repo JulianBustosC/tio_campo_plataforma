@@ -1,6 +1,9 @@
 from django.conf import settings
 from django.db import models
 
+from apps.core.campos import TextoCifrado
+from apps.core.cifrado import enmascarar, huella, normalizar_documento
+
 
 class FondoEmpleado(models.Model):
     """
@@ -74,6 +77,34 @@ class FondoEmpleado(models.Model):
         return self.nombre
 
 
+class Finca(models.Model):
+    """
+    Punto de entrega de un fondo (finca, sede o planta). Quien compra por nómina
+    elige su finca para que el pedido se entregue exactamente ahí.
+    """
+
+    fondo = models.ForeignKey(FondoEmpleado, on_delete=models.CASCADE, related_name="fincas")
+    nombre = models.CharField(max_length=150)
+    municipio = models.CharField(max_length=120, blank=True)
+    indicaciones = models.TextField(
+        blank=True,
+        help_text="Cómo llegar y a quién entregar (vereda, portería, horario de recibo...).",
+    )
+    activo = models.BooleanField(default=True)
+    orden = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = "Finca / punto de entrega"
+        verbose_name_plural = "Fincas / puntos de entrega"
+        ordering = ["fondo", "orden", "nombre"]
+        constraints = [
+            models.UniqueConstraint(fields=["fondo", "nombre"], name="finca_nombre_unico_por_fondo"),
+        ]
+
+    def __str__(self):
+        return f"{self.nombre} ({self.municipio})" if self.municipio else self.nombre
+
+
 class AfiliadoFondo(models.Model):
     """Registro del padrón de afiliados/empleados que el fondo carga a la plataforma."""
 
@@ -82,9 +113,14 @@ class AfiliadoFondo(models.Model):
         on_delete=models.CASCADE,
         related_name="afiliados",
     )
-    documento = models.CharField(
-        max_length=30,
-        help_text="Normalizado: solo dígitos y letras, sin puntos ni guiones.",
+    documento = TextoCifrado(
+        help_text="Cifrado en la base de datos. Normalizado: solo dígitos y letras.",
+    )
+    documento_huella = models.CharField(
+        max_length=64,
+        editable=False,
+        db_index=True,
+        help_text="Huella HMAC del documento para buscarlo sin guardarlo en claro.",
     )
     nombre = models.CharField(max_length=200, blank=True)
     empresa = models.CharField(max_length=200, blank=True)
@@ -98,7 +134,7 @@ class AfiliadoFondo(models.Model):
         ordering = ["fondo", "documento"]
         constraints = [
             models.UniqueConstraint(
-                fields=["fondo", "documento"],
+                fields=["fondo", "documento_huella"],
                 name="afiliado_documento_unico_por_fondo",
             ),
             models.CheckConstraint(
@@ -107,8 +143,13 @@ class AfiliadoFondo(models.Model):
             ),
         ]
 
+    def save(self, *args, **kwargs):
+        self.documento = normalizar_documento(self.documento)
+        self.documento_huella = huella(self.documento)
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.documento} - {self.nombre} ({self.fondo})"
+        return f"{self.nombre or 'Afiliado'} ({self.fondo})"
 
 
 class SolicitudDescuentoNomina(models.Model):
@@ -149,6 +190,14 @@ class SolicitudDescuentoNomina(models.Model):
         null=True,
         blank=True,
     )
+    finca = models.ForeignKey(
+        Finca,
+        on_delete=models.PROTECT,
+        related_name="solicitudes",
+        null=True,
+        blank=True,
+        help_text="Finca o punto donde se entrega el pedido.",
+    )
     afiliado = models.ForeignKey(
         AfiliadoFondo,
         on_delete=models.SET_NULL,
@@ -158,8 +207,10 @@ class SolicitudDescuentoNomina(models.Model):
     )
 
     nombre_completo = models.CharField(max_length=200)
-    documento = models.CharField(max_length=50)
-    telefono = models.CharField(max_length=50, blank=True)
+    # Datos sensibles cifrados en reposo (Ley 1581 de 2012).
+    documento = TextoCifrado()
+    documento_huella = models.CharField(max_length=64, editable=False, db_index=True, blank=True)
+    telefono = TextoCifrado(blank=True)
     correo = models.EmailField(blank=True)
     empresa = models.CharField(max_length=200, default="Tío Campo")
     numero_afiliado = models.CharField(max_length=100, blank=True)
@@ -203,6 +254,29 @@ class SolicitudDescuentoNomina(models.Model):
     respuesta_fondo = models.TextField(blank=True)
     observaciones_usuario = models.TextField(blank=True)
     estado = models.CharField(max_length=20, choices=ESTADOS, default=ESTADO_PENDIENTE)
+
+    # Autorización de tratamiento de datos (prueba de la autorización, art. 9 Ley 1581).
+    autorizacion_datos = models.BooleanField(default=False)
+    autorizacion_fecha = models.DateTimeField(blank=True, null=True)
+    autorizacion_version = models.CharField(
+        max_length=20,
+        blank=True,
+        help_text="Versión de la política de tratamiento de datos que aceptó el titular.",
+    )
+    corte = models.ForeignKey(
+        "CorteNomina",
+        on_delete=models.PROTECT,
+        related_name="solicitudes",
+        null=True,
+        blank=True,
+        help_text="Corte mensual en que se reportó al fondo para descontar por nómina.",
+    )
+    anonimizada_en = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="Fecha en que se borraron los datos personales por la política de retención.",
+    )
+
     fecha_solicitud = models.DateTimeField(auto_now_add=True)
     fecha_respuesta = models.DateTimeField(blank=True, null=True)
     referencia_fondo = models.CharField(max_length=100, blank=True)
@@ -221,6 +295,14 @@ class SolicitudDescuentoNomina(models.Model):
     @property
     def esta_pendiente(self):
         return self.estado == self.ESTADO_PENDIENTE
+
+    @property
+    def documento_enmascarado(self):
+        return enmascarar(normalizar_documento(self.documento))
+
+    def save(self, *args, **kwargs):
+        self.documento_huella = huella(self.documento)
+        super().save(*args, **kwargs)
 
 
 class HistorialSolicitud(models.Model):
@@ -261,3 +343,36 @@ class HistorialSolicitud(models.Model):
 
     def __str__(self):
         return f"#{self.solicitud_id} {self.get_evento_display()} {self.fecha:%Y-%m-%d %H:%M}"
+
+
+class CorteNomina(models.Model):
+    """
+    Cierre mensual por fondo: agrupa las solicitudes aprobadas que el fondo debe
+    descontar por nómina. Una solicitud solo puede quedar en un corte, así nunca
+    se reporta (ni se descuenta) dos veces.
+    """
+
+    fondo = models.ForeignKey(FondoEmpleado, on_delete=models.PROTECT, related_name="cortes")
+    periodo = models.DateField(help_text="Primer día del mes del corte.")
+    cantidad = models.PositiveIntegerField(default=0)
+    total = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    generado_en = models.DateTimeField(auto_now_add=True)
+    generado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cortes_nomina",
+    )
+    enviado_en = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = "Corte de nómina"
+        verbose_name_plural = "Cortes de nómina"
+        ordering = ["-periodo", "fondo__nombre"]
+        constraints = [
+            models.UniqueConstraint(fields=["fondo", "periodo"], name="corte_unico_por_fondo_y_mes"),
+        ]
+
+    def __str__(self):
+        return f"{self.fondo} · {self.periodo:%Y-%m}"

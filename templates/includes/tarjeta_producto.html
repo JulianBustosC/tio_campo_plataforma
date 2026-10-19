@@ -1,0 +1,28 @@
+{# Requiere un producto de productos_para_tarjetas() (trae presentaciones_activas). #}
+{% with pres=producto.presentaciones_activas primera=producto.presentaciones_activas.0 %}
+<article class="tc-card">
+  <a class="tc-card__img" href="{% url 'productos:detalle' producto.id %}" tabindex="-1" aria-hidden="true">
+    {% if producto.imagen %}
+      <img src="{{ producto.imagen.url }}" alt="" loading="lazy">
+    {% else %}
+      <span class="tc-card__sin-img"><i class="bi bi-{{ producto.categoria.icono|default:'basket' }}"></i></span>
+    {% endif %}
+    {% if producto.destacado %}<span class="tc-badge tc-badge--combo">Destacado</span>{% endif %}
+  </a>
+  <div class="tc-card__cuerpo">
+    <div class="tc-card__marca">{{ producto.marca.nombre }}</div>
+    <a class="tc-card__nombre" href="{% url 'productos:detalle' producto.id %}">{{ producto.nombre }}</a>
+    {% if pres|length > 1 %}
+      <select class="form-select form-select-sm tc-card__pres" data-pres-select aria-label="Presentación de {{ producto.nombre }}">
+        {% for p in pres %}<option value="{{ p.id }}" data-precio="{{ p.precio|stringformat:'s' }}">{{ p.presentacion.nombre }}</option>{% endfor %}
+      </select>
+    {% else %}
+      <div class="tc-card__pres-unica">{{ primera.presentacion.nombre }}</div>
+    {% endif %}
+    <div class="tc-card__precios">
+      <span class="tc-precio" data-precio-visible>${{ primera.precio|floatformat:"0g" }}</span>
+    </div>
+    {% include "includes/boton_agregar.html" with tipo="p" id=primera.id nombre=producto.nombre %}
+  </div>
+</article>
+{% endwith %}

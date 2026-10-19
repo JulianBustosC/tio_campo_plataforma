@@ -77,6 +77,13 @@ INSTALLED_APPS = [
     "apps.fondos",
     "apps.pedidos",
     "apps.cuentas",
+    "apps.pagos",
+    "apps.api",
+
+    # API REST
+    "rest_framework",
+    "rest_framework.authtoken",
+    "drf_spectacular",
 ]
 
 
@@ -138,6 +145,8 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
 
                 "apps.dashboard.context_processors.navegacion",
+
+                "apps.core.context_processors.datos_personales",
 
             ],
         },
@@ -245,6 +254,15 @@ MEDIA_URL = "/media/"
 
 MEDIA_ROOT = (
     BASE_DIR / "media"
+)
+
+# Archivos privados (firmas de entrega): fuera de MEDIA_ROOT para que el
+# servidor web nunca los publique. Inclúyalos en las copias de seguridad.
+ARCHIVOS_PRIVADOS_ROOT = Path(
+    os.getenv(
+        "ARCHIVOS_PRIVADOS_ROOT",
+        str(BASE_DIR / "privado"),
+    )
 )
 
 
@@ -376,7 +394,95 @@ FONDOS_API_TIMEOUT = int(
         "8",
     )
 )
+# =====================================================
+# PROTECCIÓN DE DATOS PERSONALES (Ley 1581 de 2012)
+# =====================================================
 
+# Claves Fernet para cifrar documento y teléfono en la base de datos.
+# Generar con:  python manage.py generar_clave_cifrado
+# Para rotar: ponga la nueva primero y deje la anterior después, separadas por coma.
+DATOS_CIFRADO_CLAVES = os.getenv("DATOS_CIFRADO_CLAVES", "")
+
+# Secreto para las huellas de búsqueda de documentos (no se puede cambiar
+# sin recalcular las huellas existentes).
+DATOS_HUELLA_CLAVE = os.getenv("DATOS_HUELLA_CLAVE", "")
+
+# Días que se conservan los datos personales de solicitudes y pedidos ya
+# cerrados antes de anonimizarlos (python manage.py anonimizar_datos).
+RETENCION_DATOS_DIAS = int(os.getenv("RETENCION_DATOS_DIAS", "730"))
+
+# Versión vigente de la política de tratamiento de datos. Cámbiela cada vez
+# que modifique la política: queda registrada en cada autorización.
+POLITICA_DATOS_VERSION = os.getenv("POLITICA_DATOS_VERSION", "2026-10")
+
+# Datos del responsable del tratamiento que se muestran en la política.
+RESPONSABLE_DATOS = {
+    "razon_social": os.getenv("RESPONSABLE_RAZON_SOCIAL", "[RAZÓN SOCIAL DE LA EMPRESA]"),
+    "nit": os.getenv("RESPONSABLE_NIT", "[NIT]"),
+    "direccion": os.getenv("RESPONSABLE_DIRECCION", "[DIRECCIÓN]"),
+    "ciudad": os.getenv("RESPONSABLE_CIUDAD", "Bogotá D.C."),
+    "correo": os.getenv("RESPONSABLE_CORREO_DATOS", "[CORREO PARA HABEAS DATA]"),
+    "telefono": os.getenv("RESPONSABLE_TELEFONO", "[TELÉFONO]"),
+}
+
+
+# =====================================================
+# API REST (Django REST Framework)
+# =====================================================
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        # Token para apps móviles e integraciones; sesión para el navegador.
+        "rest_framework.authentication.TokenAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 24,
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": os.getenv("API_LIMITE_ANONIMO", "120/min"),
+        "user": os.getenv("API_LIMITE_USUARIO", "600/min"),
+    },
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "API Tío Campo",
+    "DESCRIPTION": (
+        "Catálogo, carrito, pedidos, pagos y descuento por nómina. "
+        "Autenticación: encabezado `Authorization: Token <token>` (obtenga el token en /api/v1/auth/token/)."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "ENUM_NAME_OVERRIDES": {
+        "EstadoPedidoEnum": "apps.pedidos.models.Pedido.ESTADOS",
+        "EstadoSolicitudEnum": "apps.fondos.models.SolicitudDescuentoNomina.ESTADOS",
+        "EstadoDecisionEnum": "apps.api.serializers.ESTADOS_DECISION",
+    },
+}
+
+
+# =====================================================
+# PASARELA DE PAGOS
+# =====================================================
+
+PASARELA_PAGOS = os.getenv("PASARELA_PAGOS", "wompi")
+
+PAGOS_API_TIMEOUT = int(os.getenv("PAGOS_API_TIMEOUT", "10"))
+
+# Llaves de Wompi (panel de comercio -> Desarrolladores). Las de prueba empiezan por
+# pub_test_ / test_integrity_ / test_events_. NUNCA las suba al repositorio.
+WOMPI_PUBLIC_KEY = os.getenv("WOMPI_PUBLIC_KEY", "")
+WOMPI_INTEGRITY_SECRET = os.getenv("WOMPI_INTEGRITY_SECRET", "")
+WOMPI_EVENTS_SECRET = os.getenv("WOMPI_EVENTS_SECRET", "")
+WOMPI_API_URL = os.getenv("WOMPI_API_URL", "https://sandbox.wompi.co/v1")
+WOMPI_CHECKOUT_URL = os.getenv("WOMPI_CHECKOUT_URL", "https://checkout.wompi.co/p/")
 
 # =====================================================
 # SEGURIDAD EN PRODUCCIÓN
@@ -386,6 +492,9 @@ if not DEBUG:
 
     if SECRET_KEY.startswith("django-insecure"):
         raise RuntimeError("Defina DJANGO_SECRET_KEY en el entorno de producción.")
+
+    if not DATOS_CIFRADO_CLAVES or not DATOS_HUELLA_CLAVE:
+        raise RuntimeError("Defina DATOS_CIFRADO_CLAVES y DATOS_HUELLA_CLAVE en producción.")
 
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True

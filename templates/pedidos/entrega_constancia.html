@@ -1,0 +1,63 @@
+{% extends "layouts/base.html" %}
+{% block title %}Constancia de entrega {{ pedido.numero }}{% endblock %}
+
+{% block css %}
+<style>
+  @media print {
+    .tc-topbar, .tc-header, .tc-footer, .tc-bottomnav, .tc-toasts, .no-imprimir { display: none !important; }
+    body { background: #fff; padding: 0; }
+    .tc-constancia { box-shadow: none !important; }
+  }
+  .tc-constancia__firma { max-width: 360px; width: 100%; border-bottom: 1px solid #333; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 760px;">
+  <div class="d-flex justify-content-between align-items-center mb-2 no-imprimir">
+    {% if perms.pedidos.registrar_entrega %}
+      <a href="{% url 'pedidos:entregas' %}" class="small fw-semibold" style="color:var(--tc-verde)"><i class="bi bi-chevron-left"></i> Entregas</a>
+    {% else %}
+      <a href="{% url 'pedidos:confirmacion' pedido.id %}" class="small fw-semibold" style="color:var(--tc-verde)"><i class="bi bi-chevron-left"></i> Volver al pedido</a>
+    {% endif %}
+    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
+  </div>
+
+  <article class="bg-white rounded-4 shadow-sm p-4 p-md-5 tc-constancia">
+    <div class="d-flex justify-content-between flex-wrap gap-2">
+      <div>
+        <div class="small text-muted">Tío Campo · Constancia de entrega</div>
+        <h1 class="h4 fw-bold mb-0" style="color:var(--tc-verde)">Pedido {{ pedido.numero }}</h1>
+      </div>
+      <span class="badge rounded-pill align-self-start" style="background:var(--tc-verde)"><i class="bi bi-check2-circle"></i> Entregado</span>
+    </div>
+
+    <dl class="row mt-4 mb-0 small">
+      <dt class="col-sm-4">Fecha y hora</dt><dd class="col-sm-8">{{ entrega.entregado_en|date:"d/m/Y H:i" }}</dd>
+      <dt class="col-sm-4">Recibió</dt><dd class="col-sm-8">{{ entrega.recibido_por }}</dd>
+      <dt class="col-sm-4">Lugar de entrega</dt>
+      <dd class="col-sm-8">{% if solicitud.finca %}{{ solicitud.finca }} · {{ solicitud.fondo.nombre }}{% else %}{{ pedido.direccion_entrega }}{% if pedido.ciudad %}, {{ pedido.ciudad }}{% endif %}{% endif %}</dd>
+      <dt class="col-sm-4">Medio de pago</dt><dd class="col-sm-8">{{ pedido.get_metodo_pago_display }}{% if solicitud %} · {{ solicitud.get_estado_display }} (${{ solicitud.valor_aprobado|default:0|floatformat:"0g" }} por nómina){% endif %}</dd>
+      {% if entrega.entregado_por %}<dt class="col-sm-4">Entregó</dt><dd class="col-sm-8">{{ entrega.entregado_por.get_full_name|default:entrega.entregado_por.username }}</dd>{% endif %}
+      {% if entrega.observaciones %}<dt class="col-sm-4">Observaciones</dt><dd class="col-sm-8">{{ entrega.observaciones }}</dd>{% endif %}
+    </dl>
+
+    <table class="table table-sm mt-4">
+      <thead><tr><th>Cant.</th><th>Producto</th><th class="text-end">Subtotal</th></tr></thead>
+      <tbody>
+        {% for item in pedido.items.all %}
+          <tr><td>{{ item.cantidad }}</td><td>{{ item.producto_nombre }} <span class="text-muted">{{ item.presentacion }}</span></td><td class="text-end">${{ item.subtotal|floatformat:"0g" }}</td></tr>
+        {% endfor %}
+      </tbody>
+      <tfoot><tr><th colspan="2">Total</th><th class="text-end">${{ pedido.total|floatformat:"0g" }}</th></tr></tfoot>
+    </table>
+
+    {% if entrega.firma %}
+      <div class="mt-4">
+        <img class="tc-constancia__firma" src="{% url 'pedidos:entrega_firma' pedido.id %}" alt="Firma de {{ entrega.recibido_por }}">
+        <div class="small mt-1">Firma de quien recibe: {{ entrega.recibido_por }}</div>
+      </div>
+    {% endif %}
+  </article>
+</div>
+{% endblock %}

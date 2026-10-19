@@ -1,0 +1,22 @@
+{# Franja horizontal. Parámetros: titulo, subtitulo, url, productos o combos #}
+{% if productos or combos %}
+<section class="tc-seccion">
+  <div class="container">
+    <div class="tc-seccion__cabecera">
+      <div>
+        <h2 class="tc-seccion__titulo">{{ titulo }}</h2>
+        {% if subtitulo %}<p class="tc-seccion__sub">{{ subtitulo }}</p>{% endif %}
+      </div>
+      {% if url %}<a class="tc-ver-todo" href="{{ url }}">Ver todo <i class="bi bi-chevron-right"></i></a>{% endif %}
+    </div>
+    <div class="tc-franja">
+      <button type="button" class="tc-franja__flecha" data-scroll="-1" aria-label="Anteriores"><i class="bi bi-chevron-left"></i></button>
+      <div class="tc-franja__pista">
+        {% for producto in productos %}{% include "includes/tarjeta_producto.html" %}{% endfor %}
+        {% for combo in combos %}{% include "includes/tarjeta_combo.html" %}{% endfor %}
+      </div>
+      <button type="button" class="tc-franja__flecha" data-scroll="1" aria-label="Siguientes"><i class="bi bi-chevron-right"></i></button>
+    </div>
+  </div>
+</section>
+{% endif %}

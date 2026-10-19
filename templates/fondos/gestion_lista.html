@@ -7,6 +7,7 @@
     <div class="d-flex flex-wrap gap-2">
       {% for fondo in fondos %}
         <a class="btn btn-outline-secondary btn-sm" href="{% url 'fondos:gestion_padron' fondo.id %}"><i class="bi bi-people me-1"></i>Padrón {{ fondo.nombre }}</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'fondos:gestion_reporte' fondo.id %}"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Reporte de nómina {{ fondo.nombre }}</a>
       {% endfor %}
     </div>
   </div>
@@ -24,8 +25,8 @@
     <div class="product-card p-4 mb-3">
       <div class="row align-items-center g-3">
         <div class="col-md-2"><strong>#{{ solicitud.id }}</strong><div class="small text-muted">{{ solicitud.fecha_solicitud|date:"d/m/Y H:i" }}</div></div>
-        <div class="col-md-3">{{ solicitud.nombre_completo }}<div class="small text-muted">CC {{ solicitud.documento }}</div></div>
-        <div class="col-md-2">{{ solicitud.fondo.nombre }}</div>
+        <div class="col-md-3">{{ solicitud.nombre_completo }}<div class="small text-muted">CC {{ solicitud.documento_enmascarado }}</div></div>
+        <div class="col-md-2">{{ solicitud.fondo.nombre }}{% if solicitud.finca %}<div class="small text-muted"><i class="bi bi-geo-alt"></i> {{ solicitud.finca.nombre }}</div>{% endif %}</div>
         <div class="col-md-2">${{ solicitud.valor_solicitado|floatformat:0 }}{% if solicitud.valor_aprobado != None and not solicitud.esta_pendiente %}<div class="small text-muted">Aprobado ${{ solicitud.valor_aprobado|floatformat:0 }}</div>{% endif %}</div>
         <div class="col-md-1"><span class="badge text-bg-secondary">{{ solicitud.get_estado_display }}</span></div>
         <div class="col-md-2 text-md-end"><a class="btn btn-tio" href="{% url 'fondos:gestion_detalle' solicitud.id %}">{% if solicitud.esta_pendiente %}Revisar{% else %}Ver{% endif %}</a></div>

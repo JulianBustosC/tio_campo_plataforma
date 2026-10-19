@@ -1,0 +1,71 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Política de tratamiento de datos personales · Tío Campo{% endblock %}
+
+{% comment %}
+  PLANTILLA BASE. Debe ser revisada y ajustada por el área jurídica de la empresa
+  antes de publicarse. Los datos del responsable se configuran en el .env
+  (RESPONSABLE_RAZON_SOCIAL, RESPONSABLE_NIT, RESPONSABLE_CORREO_DATOS, ...).
+  Contenido mínimo exigido por el artículo 13 del Decreto 1377 de 2013
+  (compilado en el Decreto 1074 de 2015).
+{% endcomment %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 880px;">
+  <article class="p-4 p-md-5 bg-white rounded-4 shadow-sm">
+    <h1 class="h3 fw-bold" style="color:var(--tc-verde)">Política de tratamiento de datos personales</h1>
+    <p class="text-muted small">Versión {{ POLITICA_DATOS_VERSION }} · Ley 1581 de 2012 y Decreto 1377 de 2013</p>
+
+    <h2 class="h5 mt-4">1. Responsable del tratamiento</h2>
+    <p>
+      {{ RESPONSABLE_DATOS.razon_social }}, NIT {{ RESPONSABLE_DATOS.nit }}, con domicilio en
+      {{ RESPONSABLE_DATOS.direccion }}, {{ RESPONSABLE_DATOS.ciudad }}.
+      Correo: <a href="mailto:{{ RESPONSABLE_DATOS.correo }}">{{ RESPONSABLE_DATOS.correo }}</a> ·
+      Teléfono: {{ RESPONSABLE_DATOS.telefono }}.
+    </p>
+
+    <h2 class="h5 mt-4">2. Datos que recolectamos</h2>
+    <ul>
+      <li>Identificación y contacto: nombre, número de documento, correo electrónico y celular.</li>
+      <li>Datos de la compra: productos, valores, dirección de entrega y medio de pago.</li>
+      <li>Para el descuento por nómina: empresa donde trabaja, fondo de empleados y número de afiliado.</li>
+    </ul>
+    <p>No recolectamos datos sensibles ni datos de menores de edad. Los datos de tarjetas y cuentas bancarias
+      los recibe directamente la pasarela de pagos; no se almacenan en esta plataforma.</p>
+
+    <h2 class="h5 mt-4">3. Finalidades</h2>
+    <ul>
+      <li>Gestionar pedidos, pagos, entregas y la atención al cliente.</li>
+      <li>Enviar al fondo de empleados elegido por el titular los datos necesarios para verificar su vinculación
+        y su cupo, y para aprobar, aprobar parcialmente o rechazar el descuento por nómina.</li>
+      <li>Coordinar con el fondo de empleados la fecha de entrega.</li>
+      <li>Cumplir obligaciones legales, contables y tributarias.</li>
+    </ul>
+
+    <h2 class="h5 mt-4">4. Derechos del titular</h2>
+    <p>Como titular puedes: conocer, actualizar y rectificar tus datos; solicitar prueba de la autorización;
+      ser informado del uso dado a tus datos; presentar quejas ante la Superintendencia de Industria y Comercio;
+      revocar la autorización y solicitar la supresión de los datos cuando no exista un deber legal o contractual
+      de conservarlos; y acceder gratuitamente a tus datos.</p>
+
+    <h2 class="h5 mt-4">5. Cómo ejercer tus derechos</h2>
+    <p>Escribe a <a href="mailto:{{ RESPONSABLE_DATOS.correo }}">{{ RESPONSABLE_DATOS.correo }}</a> indicando tu
+      nombre, documento, la solicitud y un medio de respuesta.</p>
+    <ul>
+      <li><strong>Consultas:</strong> se responden en máximo diez (10) días hábiles, prorrogables cinco (5) días hábiles.</li>
+      <li><strong>Reclamos</strong> (corrección, actualización, supresión o revocatoria): se responden en máximo
+        quince (15) días hábiles, prorrogables ocho (8) días hábiles.</li>
+    </ul>
+
+    <h2 class="h5 mt-4">6. Seguridad y conservación</h2>
+    <p>El número de documento y el teléfono se guardan cifrados. El acceso a las solicitudes de nómina está restringido
+      a los gestores autorizados de cada fondo. Los datos personales de pedidos y solicitudes ya cerrados se conservan
+      durante {{ RETENCION_DATOS_DIAS }} días y luego se anonimizan, salvo la información que la ley obliga a conservar
+      (por ejemplo, soportes contables).</p>
+
+    <h2 class="h5 mt-4">7. Vigencia</h2>
+    <p>Esta política rige desde su publicación (versión {{ POLITICA_DATOS_VERSION }}). Los cambios sustanciales se
+      informarán en esta página y, cuando corresponda, se pedirá una nueva autorización.</p>
+  </article>
+</div>
+{% endblock %}

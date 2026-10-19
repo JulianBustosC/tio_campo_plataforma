@@ -2,6 +2,7 @@ import json
 from decimal import Decimal
 from unittest import mock
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -12,7 +13,9 @@ from apps.carrito.models import Carrito, CarritoItem
 from apps.catalogos.models import Categoria, Marca, Presentacion, UnidadMedida
 from apps.pedidos.models import Pedido
 from apps.productos.models import Producto, ProductoPresentacion
-from .models import AfiliadoFondo, FondoEmpleado, HistorialSolicitud, SolicitudDescuentoNomina
+from apps.core.cifrado import huella
+
+from .models import AfiliadoFondo, Finca, FondoEmpleado, HistorialSolicitud, SolicitudDescuentoNomina
 from .services import importar_padron
 from .verificacion import calcular_decision, normalizar_documento
 
@@ -91,6 +94,7 @@ class BaseNominaTest(TestCase):
                     "telefono": "3001234567",
                     "correo": "cliente@example.com",
                     "empresa": "Empresa prueba",
+                    "autoriza_tratamiento": "on",
                 },
             )
         solicitud = S.objects.get(pedido=pedido)
@@ -353,12 +357,12 @@ class ImportarPadronTest(BaseNominaTest):
         self.assertEqual((resultado.creados, resultado.actualizados, resultado.desactivados), (1, 1, 1))
         self.assertEqual(len(resultado.errores), 2)
         self.assertEqual(
-            AfiliadoFondo.objects.get(documento="111").cupo_disponible, Decimal("1500000")
+            AfiliadoFondo.objects.get(documento_huella=huella("111")).cupo_disponible, Decimal("1500000")
         )
         self.assertEqual(
-            AfiliadoFondo.objects.get(documento="222").cupo_disponible, Decimal("250000.50")
+            AfiliadoFondo.objects.get(documento_huella=huella("222")).cupo_disponible, Decimal("250000.50")
         )
-        self.assertFalse(AfiliadoFondo.objects.get(documento="333").activo)
+        self.assertFalse(AfiliadoFondo.objects.get(documento_huella=huella("333")).activo)
 
     def test_columnas_obligatorias(self):
         resultado = importar_padron(self.fondo, b"cedula,cupo\n1,2\n")
@@ -372,7 +376,7 @@ class ImportarPadronTest(BaseNominaTest):
             reverse("fondos:gestion_padron", args=[self.fondo.id]), {"archivo": archivo}
         )
         self.assertEqual(respuesta.status_code, 200)
-        self.assertTrue(AfiliadoFondo.objects.filter(fondo=self.fondo, documento="555").exists())
+        self.assertTrue(AfiliadoFondo.objects.filter(fondo=self.fondo, documento_huella=huella("555")).exists())
 
     def test_cliente_no_puede_cargar_padron(self):
         self.client.force_login(self.cliente)
@@ -413,3 +417,214 @@ class PaginasRenderizanTest(BaseNominaTest):
         self.client.logout()
         for nombre in ("login", "registro"):
             self.assertEqual(self.client.get(reverse(nombre)).status_code, 200)
+
+
+class ProteccionDatosTest(BaseNominaTest):
+    """Ley 1581 de 2012: cifrado en reposo, autorización y retención."""
+
+    def valor_en_bd(self, tabla, columna, pk):
+        from django.db import connection
+
+        with connection.cursor() as cursor:
+            cursor.execute(f"SELECT {columna} FROM {tabla} WHERE id = %s", [pk])
+            return cursor.fetchone()[0]
+
+    def test_documento_y_telefono_se_guardan_cifrados(self):
+        _, solicitud, _ = self.comprar_por_nomina(documento="1.020.304.050")
+        crudo = self.valor_en_bd("fondos_solicituddescuentonomina", "documento", solicitud.id)
+        self.assertTrue(crudo.startswith("enc1:"))
+        self.assertNotIn("1020304050", crudo)
+        self.assertNotIn("3001234567", self.valor_en_bd("fondos_solicituddescuentonomina", "telefono", solicitud.id))
+
+        solicitud.refresh_from_db()
+        self.assertEqual(solicitud.documento, "1.020.304.050")      # se lee en claro
+        self.assertEqual(solicitud.telefono, "3001234567")
+        self.assertEqual(solicitud.documento_enmascarado, "••••••4050")
+
+
+    def test_padron_cifrado_sigue_verificando(self):
+        self.fondo.modo_verificacion = FondoEmpleado.MODO_PADRON
+        self.fondo.decision_automatica = True
+        self.fondo.save()
+        importar_padron(self.fondo, b"documento,cupo_disponible\n1020304050,500000\n")
+        afiliado = AfiliadoFondo.objects.get()
+        self.assertNotIn("1020304050", self.valor_en_bd("fondos_afiliadofondo", "documento", afiliado.id))
+
+        _, solicitud, _ = self.comprar_por_nomina(documento="1.020.304.050")
+        self.assertEqual(solicitud.estado, S.ESTADO_APROBADA)
+        self.assertEqual(solicitud.afiliado, afiliado)
+
+        # Reimportar actualiza (no duplica) aunque el documento esté cifrado.
+        resultado = importar_padron(self.fondo, b"documento,cupo_disponible\n1020304050,90000\n")
+        self.assertEqual((resultado.creados, resultado.actualizados), (0, 1))
+
+    def test_gestor_busca_por_documento_exacto(self):
+        _, solicitud, _ = self.comprar_por_nomina(documento="123456789")
+        self.client.force_login(self.gestor)
+        url = reverse("fondos:gestion_solicitudes")
+        self.assertContains(self.client.get(url, {"estado": "todas", "q": "123.456.789"}), f"#{solicitud.id}")
+        self.assertNotContains(self.client.get(url, {"estado": "todas", "q": "999"}), f"#{solicitud.id}")
+        self.assertNotContains(self.client.get(url, {"estado": "todas"}), "123456789")   # listado enmascarado
+
+    def test_autorizacion_obligatoria_y_registrada(self):
+        self.client.force_login(self.cliente)
+        carrito, _ = Carrito.objects.get_or_create(usuario=self.cliente, activo=True)
+        CarritoItem.objects.create(
+            carrito=carrito, presentacion=self.producto_presentacion, cantidad=1, precio_unitario=Decimal("50000")
+        )
+        self.client.post(reverse("pedidos:checkout"), {
+            "direccion_entrega": "Calle 1", "ciudad": "Bogotá", "metodo_pago": Pedido.METODO_NOMINA,
+        })
+        pedido = Pedido.objects.get(usuario=self.cliente)
+        datos = {
+            "fondo": self.fondo.id, "nombre_completo": "Cliente de Prueba", "documento": "123",
+            "empresa": "Empresa prueba",
+        }
+        respuesta = self.client.post(reverse("fondos:solicitar_descuento_nomina", args=[pedido.id]), datos)
+        self.assertContains(respuesta, "debes autorizar el tratamiento")
+        self.assertFalse(S.objects.exists())
+
+        datos["autoriza_tratamiento"] = "on"
+        self.client.post(reverse("fondos:solicitar_descuento_nomina", args=[pedido.id]), datos)
+        solicitud = S.objects.get()
+        self.assertTrue(solicitud.autorizacion_datos)
+        self.assertIsNotNone(solicitud.autorizacion_fecha)
+        self.assertEqual(solicitud.autorizacion_version, settings.POLITICA_DATOS_VERSION)
+
+    def test_politica_publica(self):
+        respuesta = self.client.get(reverse("politica_datos"))
+        self.assertContains(respuesta, "Derechos del titular")
+        self.assertContains(respuesta, settings.POLITICA_DATOS_VERSION)
+
+    def test_anonimizar_datos_vencidos(self):
+        from datetime import timedelta
+        from io import StringIO
+
+        from django.core.management import call_command
+        from django.utils import timezone
+
+        pedido, solicitud, _ = self.comprar_por_nomina()
+        self.client.force_login(self.gestor)
+        self.client.post(reverse("fondos:gestion_detalle", args=[solicitud.id]), {
+            "vinculacion_validada": "False", "estado": S.ESTADO_RECHAZADA,
+        })
+        Pedido.objects.filter(pk=pedido.pk).update(estado=Pedido.ESTADO_CANCELADO)
+
+        # Dentro del plazo: no se toca.
+        call_command("anonimizar_datos", dias=30, stdout=StringIO())
+        solicitud.refresh_from_db()
+        self.assertIsNone(solicitud.anonimizada_en)
+
+        # Vencido: se borran los datos personales, se conservan valores y estado.
+        hace_un_anio = timezone.now() - timedelta(days=365)
+        S.objects.filter(pk=solicitud.pk).update(fecha_respuesta=hace_un_anio)
+        Pedido.objects.filter(pk=pedido.pk).update(created_at=hace_un_anio)
+        call_command("anonimizar_datos", dias=30, stdout=StringIO())
+
+        solicitud.refresh_from_db()
+        pedido.refresh_from_db()
+        self.assertEqual(solicitud.nombre_completo, "Titular anonimizado")
+        self.assertEqual((solicitud.documento, solicitud.telefono, solicitud.correo), ("", "", ""))
+        self.assertEqual(solicitud.valor_solicitado, Decimal("100000"))
+        self.assertEqual(solicitud.estado, S.ESTADO_RECHAZADA)
+        self.assertIsNotNone(solicitud.anonimizada_en)
+        self.assertEqual(pedido.direccion_entrega, "Anonimizada")
+        self.assertEqual(pedido.total, Decimal("100000"))
+
+    def test_rotacion_de_claves(self):
+        from io import StringIO
+
+        from cryptography.fernet import Fernet
+        from django.core.management import call_command
+
+        from apps.core.cifrado import clave_desarrollo, reiniciar_cache
+
+        _, solicitud, _ = self.comprar_por_nomina(documento="777")
+        nueva = Fernet.generate_key().decode()
+        try:
+            with override_settings(DATOS_CIFRADO_CLAVES=f"{nueva},{clave_desarrollo()}"):
+                reiniciar_cache()
+                call_command("recifrar_datos", stdout=StringIO())
+            # Después de recifrar, basta la clave nueva para leer todo.
+            with override_settings(DATOS_CIFRADO_CLAVES=nueva):
+                reiniciar_cache()
+                self.assertEqual(S.objects.get(pk=solicitud.pk).documento, "777")
+        finally:
+            reiniciar_cache()
+
+
+class FincasTest(BaseNominaTest):
+    """Con descuento por nómina se entrega en la finca que elige el comprador."""
+
+    def setUp(self):
+        super().setUp()
+        self.finca = Finca.objects.create(
+            fondo=self.fondo, nombre="La Esperanza", municipio="Madrid",
+            indicaciones="Portería principal, recibe el jefe de bodega.",
+        )
+        otro = FondoEmpleado.objects.create(nombre="Otro fondo")
+        self.finca_ajena = Finca.objects.create(fondo=otro, nombre="El Rosal")
+
+    def pedido_nomina_sin_direccion(self):
+        self.client.force_login(self.cliente)
+        carrito, _ = Carrito.objects.get_or_create(usuario=self.cliente, activo=True)
+        CarritoItem.objects.create(
+            carrito=carrito, presentacion=self.producto_presentacion, cantidad=1, precio_unitario=Decimal("50000")
+        )
+        respuesta = self.client.post(reverse("pedidos:checkout"), {"metodo_pago": Pedido.METODO_NOMINA})
+        pedido = Pedido.objects.get(usuario=self.cliente)
+        self.assertRedirects(respuesta, reverse("fondos:solicitar_descuento_nomina", args=[pedido.id]))
+        return pedido
+
+    def datos(self, **extra):
+        datos = {
+            "fondo": self.fondo.id, "nombre_completo": "Cliente de Prueba", "documento": "123",
+            "empresa": "Flores SAS", "autoriza_tratamiento": "on",
+        }
+        datos.update(extra)
+        return datos
+
+    def test_checkout_nomina_no_pide_direccion_pero_otros_medios_si(self):
+        self.pedido_nomina_sin_direccion()
+        carrito, _ = Carrito.objects.get_or_create(usuario=self.cliente, activo=True)
+        CarritoItem.objects.create(
+            carrito=carrito, presentacion=self.producto_presentacion, cantidad=1, precio_unitario=Decimal("50000")
+        )
+        respuesta = self.client.post(reverse("pedidos:checkout"), {"metodo_pago": Pedido.METODO_OTRO})
+        self.assertContains(respuesta, "Escribe la dirección de entrega")
+        self.assertEqual(Pedido.objects.count(), 1)
+
+    def test_finca_obligatoria_si_el_fondo_tiene_fincas(self):
+        pedido = self.pedido_nomina_sin_direccion()
+        url = reverse("fondos:solicitar_descuento_nomina", args=[pedido.id])
+        self.assertContains(self.client.post(url, self.datos()), "Selecciona la finca donde trabajas")
+        self.assertContains(self.client.post(url, self.datos(finca=self.finca_ajena.id)), "no pertenece al fondo")
+        self.assertFalse(SolicitudDescuentoNomina.objects.exists())
+
+    def test_la_finca_queda_como_punto_de_entrega(self):
+        pedido = self.pedido_nomina_sin_direccion()
+        self.client.post(
+            reverse("fondos:solicitar_descuento_nomina", args=[pedido.id]), self.datos(finca=self.finca.id)
+        )
+        solicitud = SolicitudDescuentoNomina.objects.get()
+        pedido.refresh_from_db()
+        self.assertEqual(solicitud.finca, self.finca)
+        self.assertEqual((pedido.direccion_entrega, pedido.ciudad), ("Finca La Esperanza", "Madrid"))
+
+        # El gestor ve la finca y sus indicaciones.
+        self.client.force_login(self.gestor)
+        respuesta = self.client.get(reverse("fondos:gestion_detalle", args=[solicitud.id]))
+        self.assertContains(respuesta, "La Esperanza (Madrid)")
+        self.assertContains(respuesta, "Portería principal")
+
+    def test_fondo_sin_fincas_no_la_exige(self):
+        self.finca.delete()
+        pedido = self.pedido_nomina_sin_direccion()
+        self.client.post(reverse("fondos:solicitar_descuento_nomina", args=[pedido.id]), self.datos())
+        self.assertTrue(SolicitudDescuentoNomina.objects.exists())
+
+    def test_formulario_filtra_fincas_por_fondo(self):
+        pedido = self.pedido_nomina_sin_direccion()
+        contenido = self.client.get(reverse("fondos:solicitar_descuento_nomina", args=[pedido.id])).content.decode()
+        self.assertIn(f'data-fondo="{self.fondo.id}"', contenido)
+        self.assertIn("Finca donde trabajas", contenido)

@@ -1,0 +1,66 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{% if busqueda %}"{{ busqueda }}" · {% elif categoria %}{{ categoria.nombre }} · {% endif %}Tío Campo{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="tc-catalogo">
+
+    <!-- Filtros por categoría -->
+    <aside class="tc-filtros" aria-label="Filtrar por categoría">
+      <h2>Categorías</h2>
+      <a href="{% url 'productos:lista' %}{% if busqueda %}?q={{ busqueda|urlencode }}{% endif %}" class="{% if not categoria %}activo{% endif %}">
+        <i class="bi bi-grid-3x3-gap"></i> Todas
+      </a>
+      {% for c in categorias %}
+        <a href="{% url 'productos:categoria' c.id %}{% if busqueda %}?q={{ busqueda|urlencode }}{% endif %}" class="{% if categoria and categoria.id == c.id %}activo{% endif %}">
+          <i class="bi bi-{{ c.icono }}"></i> {{ c.nombre }}
+        </a>
+      {% endfor %}
+    </aside>
+
+    <section>
+      <div class="tc-catalogo__barra">
+        <div>
+          <h1>
+            {% if busqueda %}Resultados para “{{ busqueda }}”{% elif categoria %}{{ categoria.nombre }}{% else %}Todos los productos{% endif %}
+          </h1>
+          <div class="small text-muted">{{ pagina.paginator.count }} producto{{ pagina.paginator.count|pluralize }}</div>
+        </div>
+        <form method="get">
+          {% if busqueda %}<input type="hidden" name="q" value="{{ busqueda }}">{% endif %}
+          <label class="visually-hidden" for="orden">Ordenar por</label>
+          <select id="orden" name="orden" class="form-select" onchange="this.form.submit()">
+            {% for valor, nombre in ordenes %}<option value="{{ valor }}" {% if orden == valor %}selected{% endif %}>{{ nombre }}</option>{% endfor %}
+          </select>
+        </form>
+      </div>
+
+      {% if productos %}
+        <div class="tc-grid">
+          {% for producto in productos %}{% include "includes/tarjeta_producto.html" %}{% endfor %}
+        </div>
+
+        {% if pagina.has_other_pages %}
+          <nav class="tc-paginacion" aria-label="Paginación">
+            {% if pagina.has_previous %}
+              <a class="btn btn-outline-secondary rounded-pill" href="?{% if busqueda %}q={{ busqueda|urlencode }}&{% endif %}orden={{ orden }}&page={{ pagina.previous_page_number }}"><i class="bi bi-chevron-left"></i> Anterior</a>
+            {% endif %}
+            <span class="small text-muted">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+            {% if pagina.has_next %}
+              <a class="btn btn-outline-secondary rounded-pill" href="?{% if busqueda %}q={{ busqueda|urlencode }}&{% endif %}orden={{ orden }}&page={{ pagina.next_page_number }}">Siguiente <i class="bi bi-chevron-right"></i></a>
+            {% endif %}
+          </nav>
+        {% endif %}
+      {% else %}
+        <div class="tc-vacio">
+          <i class="bi bi-search"></i>
+          <h2 class="h5 mt-3">No encontramos productos{% if busqueda %} para “{{ busqueda }}”{% endif %}</h2>
+          <p class="text-muted">Revisa la ortografía o prueba con otra palabra.</p>
+          <a href="{% url 'productos:lista' %}" class="btn btn-tio mt-2">Ver todos los productos</a>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

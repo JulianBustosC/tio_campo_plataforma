@@ -43,4 +43,16 @@ urlpatterns = [
         views.vaciar_carrito,
         name="vaciar",
     ),
+
+    path(
+        "api/<str:tipo>/<int:objeto_id>/",
+        views.api_cantidad,
+        name="api_cantidad",
+    ),
+
+    path(
+        "mini/",
+        views.mini_carrito,
+        name="mini",
+    ),
 ]

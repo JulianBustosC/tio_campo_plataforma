@@ -9,13 +9,29 @@
         {% csrf_token %}
         {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
         <div class="row g-3">
-          {% for field in form %}
+          {% for field in form %}{% if field.name != 'autoriza_tratamiento' %}
             <div class="{% if field.name == 'observaciones_usuario' %}col-12{% else %}col-md-6{% endif %}">
               <label class="form-label fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} *{% endif %}</label>
               {{ field }}
               {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
             </div>
-          {% endfor %}
+          {% endif %}{% endfor %}
+        </div>
+
+        <div class="mt-4 p-3 rounded-3 border">
+          <div class="form-check">
+            {{ form.autoriza_tratamiento }}
+            <label class="form-check-label small" for="{{ form.autoriza_tratamiento.id_for_label }}">
+              <strong>Autorizo</strong> a {{ RESPONSABLE_DATOS.razon_social }} para tratar mis datos personales
+              (nombre, documento, teléfono, correo y empresa) con el fin de gestionar esta compra y
+              <strong>compartirlos con el fondo de empleados</strong> que seleccioné, para que verifique mi
+              vinculación, mi cupo y apruebe el descuento por nómina, conforme a la
+              <a href="{% url 'politica_datos' %}" target="_blank" rel="noopener">Política de tratamiento de datos personales</a>
+              (versión {{ POLITICA_DATOS_VERSION }}). Sé que puedo conocer, actualizar, rectificar y solicitar la
+              supresión de mis datos o revocar esta autorización escribiendo a {{ RESPONSABLE_DATOS.correo }}.
+            </label>
+          </div>
+          {% for error in form.autoriza_tratamiento.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
         </div>
         <div class="alert mt-4" style="background:var(--crema);border:none;">El fondo validará si estás vinculado, el cupo disponible y si la compra puede aprobarse total o parcialmente.</div>
         <button type="submit" class="btn btn-tio btn-lg">Enviar solicitud</button>
@@ -32,4 +48,30 @@
     </div>
   </div>
 </div></section>
+{% endblock %}
+
+{% block js %}
+<script>
+  // Muestra solo las fincas del fondo elegido.
+  (function () {
+    const fondo = document.getElementById("id_fondo");
+    const finca = document.getElementById("id_finca");
+    if (!fondo || !finca) return;
+    const contenedor = finca.closest("div");
+    function filtrar() {
+      let visibles = 0;
+      Array.from(finca.options).forEach((opcion) => {
+        if (!opcion.value) return;
+        const coincide = opcion.dataset.fondo === fondo.value;
+        opcion.hidden = !coincide;
+        opcion.disabled = !coincide;
+        if (coincide) visibles += 1;
+        if (!coincide && opcion.selected) finca.value = "";
+      });
+      contenedor.hidden = fondo.value !== "" && visibles === 0;
+    }
+    fondo.addEventListener("change", filtrar);
+    filtrar();
+  })();
+</script>
 {% endblock %}

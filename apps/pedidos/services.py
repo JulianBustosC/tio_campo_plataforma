@@ -3,8 +3,13 @@ Casos de uso de pedidos. Las vistas solo validan la entrada HTTP y delegan aquí
 para que la misma lógica sirva a una API, tareas en segundo plano o al admin.
 """
 
+import logging
+
+from django.conf import settings
+from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import F
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.carrito.models import Carrito
@@ -13,17 +18,37 @@ from apps.promociones.models import Combo
 from .models import Pedido, PedidoItem
 
 
+logger = logging.getLogger(__name__)
+
+
 class PedidoError(Exception):
     pass
 
 
-def crear_pedido_desde_carrito(*, carrito, usuario, metodo_pago, direccion, ciudad, observaciones=""):
+def crear_pedido_desde_carrito(
+    *, carrito, usuario, metodo_pago, direccion, ciudad, observaciones="", contacto=None
+):
+    """
+    `usuario` puede ser None (compra como invitado) salvo con descuento por nómina.
+    `contacto` = {"nombre", "correo", "telefono"}; obligatorio para invitados.
+    """
+    contacto = contacto or {}
+    if usuario is not None and not usuario.is_authenticated:
+        usuario = None
     if metodo_pago not in dict(Pedido.METODOS_PAGO):
         raise PedidoError("Debes seleccionar un medio de pago válido.")
-    if not direccion:
-        raise PedidoError("Debes ingresar la dirección de entrega.")
-    if not ciudad:
-        raise PedidoError("Debes ingresar la ciudad de entrega.")
+    if usuario is None and metodo_pago == Pedido.METODO_NOMINA:
+        raise PedidoError("Para pagar con descuento por nómina debes iniciar sesión.")
+    if usuario is None and not (contacto.get("nombre") and contacto.get("correo")):
+        raise PedidoError("Escribe tu nombre y correo para continuar.")
+    # Con nómina la dirección la define la finca elegida en la solicitud.
+    if metodo_pago != Pedido.METODO_NOMINA:
+        if not direccion:
+            raise PedidoError("Debes ingresar la dirección de entrega.")
+        if not ciudad:
+            raise PedidoError("Debes ingresar la ciudad de entrega.")
+    else:
+        direccion = direccion or "Por definir: finca elegida en la solicitud de nómina"
 
     with transaction.atomic():
         carrito = Carrito.objects.select_for_update().get(pk=carrito.pk)
@@ -74,6 +99,9 @@ def crear_pedido_desde_carrito(*, carrito, usuario, metodo_pago, direccion, ciud
             direccion_entrega=direccion,
             ciudad=ciudad,
             observaciones=observaciones,
+            nombre_contacto=contacto.get("nombre", "")[:150],
+            correo_contacto=contacto.get("correo", ""),
+            telefono_contacto=contacto.get("telefono", "")[:30],
         )
 
         PedidoItem.objects.bulk_create([
@@ -94,7 +122,43 @@ def crear_pedido_desde_carrito(*, carrito, usuario, metodo_pago, direccion, ciud
         carrito.activo = False
         carrito.save(update_fields=["activo", "updated_at"])
 
+        transaction.on_commit(lambda: notificar_pedido_creado(pedido))
+
     return pedido
+
+
+def notificar_pedido_creado(pedido):
+    """Confirmación por correo con el enlace para consultar el pedido (sirve a invitados)."""
+    correo = pedido.correo_notificacion
+    if not correo:
+        return
+    enlace = settings.PUBLIC_BASE_URL.rstrip("/") + reverse(
+        "pedidos:seguimiento", args=[pedido.codigo_acceso]
+    )
+    aviso_entrega = (
+        "La fecha de entrega se acuerda con tu fondo de empleados."
+        if pedido.metodo_pago == Pedido.METODO_NOMINA
+        else "Te contactaremos para coordinar la entrega."
+    )
+    lineas = "\n".join(
+        f"- {item.cantidad} x {item.producto_nombre} ({item.presentacion}): ${item.subtotal:,.0f}"
+        for item in pedido.items.all()
+    )
+    send_mail(
+        f"Recibimos tu pedido {pedido.numero}",
+        (
+            f"Hola {pedido.nombre_cliente},\n\n"
+            f"Recibimos tu pedido {pedido.numero}.\n\n{lineas}\n\n"
+            f"Total: ${pedido.total:,.0f}\n"
+            f"Medio de pago: {pedido.get_metodo_pago_display()}\n\n"
+            f"{aviso_entrega}\n\n"
+            f"Consulta tu pedido aquí: {enlace}\n\n"
+            "Gracias por comprar en Tío Campo."
+        ),
+        settings.DEFAULT_FROM_EMAIL,
+        [correo],
+        fail_silently=True,
+    )
 
 
 def cancelar_pedido(pedido, usuario=None):

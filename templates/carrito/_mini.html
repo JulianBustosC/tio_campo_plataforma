@@ -1,0 +1,29 @@
+{% if items %}
+  <div class="px-3">
+    {% for item in items %}
+      <div class="tc-mini__item">
+        <div class="tc-mini__img">
+          {% if item.imagen_mostrar %}<img src="{{ item.imagen_mostrar.url }}" alt="">{% else %}<i class="bi bi-basket fs-4"></i>{% endif %}
+        </div>
+        <div>
+          <div class="tc-mini__nombre">{{ item.nombre_mostrar }}</div>
+          <div class="small text-muted">{{ item.detalle_mostrar }} · ${{ item.precio_unitario|floatformat:"0g" }} c/u</div>
+          <div class="tc-mini__fila">
+            {% if item.es_combo %}
+              {% include "includes/boton_agregar.html" with tipo="c" id=item.combo_id nombre=item.nombre_mostrar maximo=item.combo.stock %}
+            {% else %}
+              {% include "includes/boton_agregar.html" with tipo="p" id=item.presentacion_id nombre=item.nombre_mostrar %}
+            {% endif %}
+            <strong>${{ item.subtotal|floatformat:"0g" }}</strong>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="text-center p-5">
+    <i class="bi bi-cart3" style="font-size:3rem;color:var(--tc-dorado);"></i>
+    <p class="mt-3 mb-1 fw-semibold">Tu carrito está vacío</p>
+    <p class="text-muted small">Agrega productos y aparecerán aquí.</p>
+  </div>
+{% endif %}

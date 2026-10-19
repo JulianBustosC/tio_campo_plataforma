@@ -1,0 +1,9 @@
+{# Botón "Agregar" que se convierte en selector de cantidad. Parámetros: tipo (p|c), id, nombre, maximo #}
+<div class="tc-add" data-add data-tipo="{{ tipo }}" data-id="{{ id }}" data-nombre="{{ nombre }}" data-max="{{ maximo|default:99 }}">
+  <button type="button" class="tc-add__btn" data-accion="agregar"><i class="bi bi-plus-lg"></i> Agregar</button>
+  <div class="tc-stepper" hidden>
+    <button type="button" data-accion="menos" aria-label="Quitar una unidad de {{ nombre }}"><i class="bi bi-dash-lg"></i></button>
+    <span class="tc-stepper__cantidad" aria-live="polite"><span data-cantidad>0</span><small>en carrito</small></span>
+    <button type="button" data-accion="mas" aria-label="Agregar una unidad de {{ nombre }}"><i class="bi bi-plus-lg"></i></button>
+  </div>
+</div>

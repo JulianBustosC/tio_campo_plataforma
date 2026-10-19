@@ -1,283 +1,77 @@
-{% load static %}
+{% extends "layouts/base.html" %}
 
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+{% block title %}{{ combo.nombre }} · Tío Campo{% endblock %}
 
-    <title>{{ combo.nombre }} | ECOMMERCE PRO</title>
+{% block css %}
+<style>
+  /* minmax(0, …): una imagen muy grande no puede ensanchar su columna ni desbordar la página. */
+  .tc-detalle { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 32px; padding: 24px 0 40px; }
+  .tc-detalle > * { min-width: 0; }
+  .tc-detalle__imagen { background: var(--tc-blanco); border-radius: 20px; box-shadow: var(--tc-sombra); padding: 24px; aspect-ratio: 1 / 1; display: grid; place-items: center; }
+  .tc-detalle__imagen img { width: 100%; height: 100%; max-width: 100%; max-height: 100%; object-fit: contain; }
+  .tc-detalle__info { background: var(--tc-blanco); border-radius: 20px; box-shadow: var(--tc-sombra); padding: 28px; align-self: start; }
+  .tc-detalle__info h1 { font-size: 1.7rem; font-weight: 700; color: var(--tc-verde); margin: 6px 0 12px; }
+  .tc-detalle__precio { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
+  .tc-detalle__precio .tc-precio { font-size: 2rem; }
+  .tc-detalle .tc-add { max-width: 320px; }
+  .tc-detalle .tc-add__btn, .tc-detalle .tc-stepper { height: 50px; font-size: 1rem; }
+  .tc-detalle .tc-stepper { grid-template-columns: 50px 1fr 50px; }
+  @media (max-width: 767.98px) { .tc-detalle { grid-template-columns: 1fr; gap: 16px; } }
+</style>
+{% endblock %}
 
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+{% block content %}
+<div class="container">
+  <a href="{% url 'combos:lista_combos' %}" class="d-inline-block mt-3 small fw-semibold" style="color:var(--tc-verde)">
+    <i class="bi bi-chevron-left"></i> Volver a combos y ofertas
+  </a>
 
-        body {
-            font-family: Arial, Helvetica, sans-serif;
-            background: #f5f7f9;
-            color: #222;
-        }
+  <div class="tc-detalle">
+    <div class="tc-detalle__imagen">
+      {% if combo.imagen %}
+        <img src="{{ combo.imagen.url }}" alt="{{ combo.nombre }}">
+      {% else %}
+        <span class="tc-card__sin-img" style="font-size:4rem"><i class="bi bi-basket2"></i></span>
+      {% endif %}
+    </div>
 
-        .contenedor {
-            width: 90%;
-            max-width: 1200px;
-            margin: 40px auto;
-        }
+    <div class="tc-detalle__info">
+      <div class="d-flex gap-2 flex-wrap">
+        <span class="badge rounded-pill" style="background:var(--tc-dorado)">Combo</span>
+        {% if combo.destacado %}<span class="badge rounded-pill" style="background:var(--tc-verde)">Destacado</span>{% endif %}
+        {% if combo.precio_anterior and combo.precio_anterior > combo.precio %}
+          {% widthratio combo.precio combo.precio_anterior 100 as porcentaje %}
+          <span class="badge rounded-pill" style="background:var(--tc-oferta)">{{ porcentaje|add:"-100" }}%</span>
+        {% endif %}
+      </div>
 
-        .volver {
-            display: inline-block;
-            margin-bottom: 25px;
-            color: #1f6f43;
-            text-decoration: none;
-            font-weight: bold;
-        }
+      <h1>{{ combo.nombre }}</h1>
+      <div class="small text-muted">Código: {{ combo.codigo }}</div>
 
-        .volver:hover {
-            text-decoration: underline;
-        }
+      {% if combo.descripcion %}
+        <p class="mt-3 mb-0" style="white-space:pre-line">{{ combo.descripcion }}</p>
+      {% endif %}
 
-        .producto {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 50px;
-            background: white;
-            padding: 40px;
-            border-radius: 15px;
-            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.08);
-        }
+      <div class="tc-detalle__precio">
+        <span class="tc-precio{% if combo.precio_anterior %} tc-precio--oferta{% endif %}">${{ combo.precio|floatformat:"0g" }}</span>
+        {% if combo.precio_anterior and combo.precio_anterior > combo.precio %}
+          <span class="tc-precio-antes">${{ combo.precio_anterior|floatformat:"0g" }}</span>
+        {% endif %}
+      </div>
 
-        .imagen-contenedor {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 400px;
-            background: #f8f8f8;
-            border-radius: 12px;
-            overflow: hidden;
-        }
+      {% if combo.stock > 0 %}
+        <p class="small mb-3" style="color:var(--tc-verde)"><i class="bi bi-check-circle-fill"></i> Disponible · {{ combo.stock }} unidad{{ combo.stock|pluralize:"es" }}</p>
+        {% include "includes/boton_agregar.html" with tipo="c" id=combo.id nombre=combo.nombre maximo=combo.stock %}
+        <button type="button" class="btn btn-link px-0 mt-2 fw-semibold" style="color:var(--tc-verde)"
+                data-bs-toggle="offcanvas" data-bs-target="#tc-mini" aria-controls="tc-mini">
+          <i class="bi bi-cart3"></i> Ver carrito
+        </button>
+      {% else %}
+        <p class="small text-danger mb-3"><i class="bi bi-x-circle-fill"></i> Agotado</p>
+        <button class="tc-add__btn" type="button" disabled style="max-width:320px">Producto agotado</button>
+      {% endif %}
 
-        .imagen-contenedor img {
-            width: 100%;
-            max-height: 500px;
-            object-fit: contain;
-        }
-
-        .sin-imagen {
-            color: #888;
-            font-size: 18px;
-        }
-
-        .informacion {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
-        .codigo {
-            color: #777;
-            font-size: 14px;
-            margin-bottom: 10px;
-        }
-
-        .nombre {
-            font-size: 38px;
-            margin-bottom: 20px;
-            color: #1f6f43;
-        }
-
-        .descripcion {
-            font-size: 17px;
-            line-height: 1.7;
-            color: #555;
-            margin-bottom: 30px;
-        }
-
-        .precio-anterior {
-            font-size: 18px;
-            color: #999;
-            text-decoration: line-through;
-            margin-bottom: 5px;
-        }
-
-        .precio {
-            font-size: 38px;
-            font-weight: bold;
-            color: #222;
-            margin-bottom: 25px;
-        }
-
-        .stock {
-            margin-bottom: 25px;
-            font-size: 16px;
-        }
-
-        .disponible {
-            color: #198754;
-            font-weight: bold;
-        }
-
-        .agotado {
-            color: #dc3545;
-            font-weight: bold;
-        }
-
-        .boton {
-            display: inline-block;
-            width: 100%;
-            padding: 16px;
-            border: none;
-            border-radius: 8px;
-            background: #1f6f43;
-            color: white;
-            text-align: center;
-            font-size: 17px;
-            font-weight: bold;
-            cursor: pointer;
-            text-decoration: none;
-        }
-
-        .boton:hover {
-            background: #155a35;
-        }
-
-        .boton-deshabilitado {
-            background: #aaa;
-            cursor: not-allowed;
-        }
-
-        .destacado {
-            display: inline-block;
-            width: fit-content;
-            margin-bottom: 15px;
-            padding: 7px 14px;
-            background: #f0c419;
-            color: #222;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: bold;
-        }
-
-        @media (max-width: 768px) {
-
-            .producto {
-                grid-template-columns: 1fr;
-                padding: 20px;
-                gap: 25px;
-            }
-
-            .nombre {
-                font-size: 30px;
-            }
-
-            .precio {
-                font-size: 30px;
-            }
-
-            .imagen-contenedor {
-                min-height: 300px;
-            }
-        }
-    </style>
-</head>
-
-<body>
-
-    <main class="contenedor">
-
-        <a href="{% url 'combos:lista_combos' %}" class="volver">
-            ← Volver a los combos
-        </a>
-
-        <section class="producto">
-
-            <div class="imagen-contenedor">
-
-                {% if combo.imagen %}
-                    <img
-                        src="{{ combo.imagen.url }}"
-                        alt="{{ combo.nombre }}"
-                    >
-                {% else %}
-                    <span class="sin-imagen">
-                        Este combo no tiene imagen disponible
-                    </span>
-                {% endif %}
-
-            </div>
-
-
-            <div class="informacion">
-
-                {% if combo.destacado %}
-                    <span class="destacado">
-                        ⭐ COMBO DESTACADO
-                    </span>
-                {% endif %}
-
-                <p class="codigo">
-                    Código: {{ combo.codigo }}
-                </p>
-
-                <h1 class="nombre">
-                    {{ combo.nombre }}
-                </h1>
-
-                {% if combo.descripcion %}
-                    <p class="descripcion">
-                        {{ combo.descripcion }}
-                    </p>
-                {% endif %}
-
-                {% if combo.precio_anterior %}
-                    <p class="precio-anterior">
-                        ${{ combo.precio_anterior|floatformat:0 }}
-                    </p>
-                {% endif %}
-
-                <p class="precio">
-                    ${{ combo.precio|floatformat:0 }}
-                </p>
-
-                <div class="stock">
-
-                    {% if combo.stock > 0 %}
-                        <span class="disponible">
-                            ✓ Disponible
-                        </span>
-                    {% else %}
-                        <span class="agotado">
-                            ✕ Agotado
-                        </span>
-                    {% endif %}
-
-                </div>
-
-                {% if combo.stock > 0 %}
-
-                    <button class="boton" type="button">
-                        AGREGAR AL CARRITO
-                    </button>
-
-                {% else %}
-
-                    <button
-                        class="boton boton-deshabilitado"
-                        type="button"
-                        disabled
-                    >
-                        PRODUCTO AGOTADO
-                    </button>
-
-                {% endif %}
-
-            </div>
-            
-        </section>
-
-    </main>
-
-</body>
-</html>
+    </div>
+  </div>
+</div>
+{% endblock %}

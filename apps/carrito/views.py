@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.db import transaction
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -7,9 +8,11 @@ from apps.productos.models import ProductoPresentacion
 from apps.promociones.models import Combo
 
 from .models import Carrito, CarritoItem
+from .services import CarritoError, fijar_cantidad, resumen_carrito
 
 
 SESSION_CARRITO_ID = "carrito_id"
+
 
 
 # ==========================================================
@@ -632,3 +635,42 @@ def vaciar_carrito(request):
     return redirect(
         "carrito:detalle"
     )
+
+# ==========================================================
+# API PARA LA TIENDA (sin recargar la página)
+# ==========================================================
+
+@require_POST
+def api_cantidad(request, tipo, objeto_id):
+    """
+    Fija la cantidad de una presentación (tipo "p") o un combo (tipo "c")
+    en el carrito. cantidad=0 lo elimina. Responde JSON para la interfaz.
+    """
+    if tipo not in ("p", "c"):
+        return JsonResponse({"ok": False, "mensaje": "Tipo inválido."}, status=400)
+
+    carrito = obtener_carrito(request)
+    try:
+        cantidad, mensaje = fijar_cantidad(carrito, tipo, objeto_id, request.POST.get("cantidad", "1"))
+    except CarritoError as exc:
+        return JsonResponse({"ok": False, "mensaje": str(exc)}, status=400)
+
+    cantidad_carrito, total = resumen_carrito(carrito)
+    return JsonResponse({
+        "ok": True,
+        "cantidad": cantidad,
+        "mensaje": mensaje,
+        "cantidad_carrito": cantidad_carrito,
+        "total": str(total),
+    })
+
+
+def mini_carrito(request):
+    """Fragmento HTML del carrito lateral (offcanvas)."""
+    carrito = obtener_carrito(request)
+    items = (
+        carrito.items
+        .select_related("presentacion__producto", "presentacion__presentacion", "combo")
+        .order_by("-updated_at")
+    )
+    return render(request, "carrito/_mini.html", {"carrito": carrito, "items": items})

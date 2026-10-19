@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
+from django.views.generic import TemplateView
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from django.conf import settings
 from django.conf.urls.static import static
@@ -14,12 +16,23 @@ urlpatterns = [
     ),
     path("cuenta/logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("cuenta/", include("apps.cuentas.urls")),
+    path(
+        "politica-de-datos/",
+        TemplateView.as_view(template_name="legal/politica_datos.html"),
+        name="politica_datos",
+    ),
     path("", include("apps.dashboard.urls")),
     path("productos/", include("apps.productos.urls")),
     path("carrito/", include("apps.carrito.urls")),
     path("combos/", include("apps.promociones.urls")),
     path("pedidos/", include("apps.pedidos.urls")),
     path("fondos/", include("apps.fondos.urls")),
+    path("pagos/", include("apps.pagos.urls")),
+
+    # API REST v1 + documentación interactiva
+    path("api/v1/", include("apps.api.urls")),
+    path("api/schema/", SpectacularAPIView.as_view(), name="api_schema"),
+    path("api/docs/", SpectacularSwaggerView.as_view(url_name="api_schema"), name="api_docs"),
 ]
 
 if settings.DEBUG:

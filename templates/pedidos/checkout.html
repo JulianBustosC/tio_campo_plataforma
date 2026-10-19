@@ -1,59 +1,181 @@
 {% extends "layouts/base.html" %}
-{% block title %}Finalizar compra | Tío Campo Commerce{% endblock %}
+
+{% block title %}Finalizar compra · Tío Campo{% endblock %}
+
+{% block css %}
+<style>
+  .tc-checkout { display: grid; grid-template-columns: 1fr 360px; gap: 24px; padding: 24px 0 40px; }
+  .tc-panel { background: var(--tc-blanco); border-radius: var(--tc-radio); box-shadow: var(--tc-sombra); padding: 24px; }
+  .tc-panel + .tc-panel { margin-top: 16px; }
+  .tc-panel h2 { font-size: 1.1rem; font-weight: 700; color: var(--tc-verde); margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+  .tc-paso { width: 28px; height: 28px; border-radius: 50%; background: var(--tc-verde); color: #fff; display: grid; place-items: center; font-size: .85rem; }
+  .tc-metodo { display: flex; gap: 12px; align-items: flex-start; border: 2px solid var(--tc-borde); border-radius: 12px; padding: 14px; cursor: pointer; margin-bottom: 10px; transition: border-color .15s, background .15s; }
+  .tc-metodo:hover { border-color: var(--tc-dorado); }
+  .tc-metodo:has(input:checked) { border-color: var(--tc-verde); background: var(--tc-verde-suave); }
+  .tc-metodo input { margin-top: 4px; accent-color: var(--tc-verde); }
+  .tc-metodo i.bi { font-size: 1.4rem; color: var(--tc-verde); }
+  .tc-aviso-entrega { display: flex; gap: 10px; align-items: center; background: var(--tc-dorado-suave); border-radius: 12px; padding: 12px 14px; font-size: .9rem; }
+  .tc-aviso-entrega i { font-size: 1.3rem; color: var(--tc-dorado-2); }
+  .tc-resumen { position: sticky; top: calc(var(--tc-alto-header) + 60px); align-self: start; }
+  .tc-resumen__item { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; font-size: .9rem; }
+  .tc-error { color: var(--tc-oferta); font-size: .82rem; margin-top: 4px; }
+  @media (max-width: 991.98px) { .tc-checkout { grid-template-columns: 1fr; } .tc-resumen { position: static; order: -1; } }
+</style>
+{% endblock %}
+
 {% block content %}
-<section class="py-5">
-  <div class="container">
-    <div class="mb-4">
-      <span style="color:var(--dorado);font-weight:600;">CHECKOUT</span>
-      <h1 class="section-title mt-2">Finaliza tu compra</h1>
-    </div>
-    <div class="row g-4">
-      <div class="col-lg-8">
-        <form method="post" class="product-card p-4">
-          {% csrf_token %}
-          <h4 class="section-title mb-4">Datos de entrega</h4>
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Dirección de entrega</label>
-            <input type="text" name="direccion_entrega" class="form-control form-control-lg" required value="{{ request.POST.direccion_entrega|default:'' }}">
+<div class="container">
+  <form method="post" class="tc-checkout" novalidate id="tc-checkout-form">
+    {% csrf_token %}
+    <div>
+      <h1 class="h3 fw-bold mb-3" style="color:var(--tc-verde)">Finaliza tu compra</h1>
+      {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+      <!-- 1. Medio de pago -->
+      <section class="tc-panel">
+        <h2><span class="tc-paso">1</span> ¿Cómo quieres pagar?</h2>
+        {% with seleccionado=form.metodo_pago.value %}
+          <label class="tc-metodo">
+            <input type="radio" name="metodo_pago" value="NOMINA" {% if seleccionado == "NOMINA" %}checked{% endif %} required>
+            <i class="bi bi-building"></i>
+            <span>
+              <strong>Descuento por nómina</strong>
+              <span class="d-block small text-muted">Tu fondo de empleados verifica tu vinculación y cupo, y aprueba el total, una parte o rechaza.</span>
+              {% if not user.is_authenticated %}
+                <span class="d-block small mt-1" style="color:var(--tc-verde)"><i class="bi bi-person-lock"></i> Te pediremos iniciar sesión o crear tu cuenta.</span>
+              {% endif %}
+            </span>
+          </label>
+          <label class="tc-metodo">
+            <input type="radio" name="metodo_pago" value="ELECTRONICO" {% if seleccionado == "ELECTRONICO" %}checked{% endif %}>
+            <i class="bi bi-credit-card"></i>
+            <span><strong>Pago en línea</strong><span class="d-block small text-muted">Tarjeta, PSE, Nequi o Bancolombia a través de Wompi.</span></span>
+          </label>
+          <label class="tc-metodo">
+            <input type="radio" name="metodo_pago" value="OTRO" {% if seleccionado == "OTRO" %}checked{% endif %}>
+            <i class="bi bi-cash-coin"></i>
+            <span><strong>Otro medio de pago</strong><span class="d-block small text-muted">Te contactaremos para acordar el pago.</span></span>
+          </label>
+        {% endwith %}
+        {% for error in form.metodo_pago.errors %}<div class="tc-error">{{ error }}</div>{% endfor %}
+      </section>
+
+      <!-- 2. Datos de contacto -->
+      <section class="tc-panel" id="tc-contacto">
+        <h2><span class="tc-paso">2</span> Tus datos</h2>
+        {% if not user.is_authenticated %}
+          <p class="small text-muted mt-n2">Compra sin crear cuenta. ¿Ya tienes una? <a href="{% url 'login' %}?next={% url 'pedidos:checkout' %}" style="color:var(--tc-verde);font-weight:600">Inicia sesión</a></p>
+        {% endif %}
+        <div class="row g-3">
+          <div class="col-md-12">
+            <label class="form-label fw-semibold" for="id_nombre">Nombre completo</label>
+            <input class="form-control form-control-lg" id="id_nombre" name="nombre" autocomplete="name" value="{{ form.nombre.value|default:'' }}" data-invitado-requerido>
+            {% for error in form.nombre.errors %}<div class="tc-error">{{ error }}</div>{% endfor %}
           </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Ciudad</label>
-            <input type="text" name="ciudad" class="form-control form-control-lg" required value="{{ request.POST.ciudad|default:'Bogotá' }}">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold" for="id_correo">Correo electrónico</label>
+            <input class="form-control form-control-lg" id="id_correo" name="correo" type="email" autocomplete="email" value="{{ form.correo.value|default:'' }}" data-invitado-requerido>
+            {% for error in form.correo.errors %}<div class="tc-error">{{ error }}</div>{% endfor %}
           </div>
-          <div class="mb-4">
-            <label class="form-label fw-semibold">Observaciones</label>
-            <textarea name="observaciones" class="form-control" rows="3">{{ request.POST.observaciones|default:'' }}</textarea>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold" for="id_telefono">Celular</label>
+            <input class="form-control form-control-lg" id="id_telefono" name="telefono" type="tel" autocomplete="tel" inputmode="tel" value="{{ form.telefono.value|default:'' }}" data-invitado-requerido>
+            {% for error in form.telefono.errors %}<div class="tc-error">{{ error }}</div>{% endfor %}
           </div>
-          <h4 class="section-title mb-3">Medio de pago</h4>
-          <div class="form-check mb-3">
-            <input class="form-check-input" type="radio" name="metodo_pago" id="pagoElectronico" value="ELECTRONICO" required>
-            <label class="form-check-label" for="pagoElectronico"><strong>Pago electrónico</strong><div class="small text-muted">Quedará pendiente hasta conectar la pasarela de pagos.</div></label>
-          </div>
-          <div class="form-check mb-3">
-            <input class="form-check-input" type="radio" name="metodo_pago" id="pagoOtro" value="OTRO">
-            <label class="form-check-label" for="pagoOtro"><strong>Otro medio de pago</strong></label>
-          </div>
-          <div class="form-check mb-4">
-            <input class="form-check-input" type="radio" name="metodo_pago" id="pagoNomina" value="NOMINA">
-            <label class="form-check-label" for="pagoNomina"><strong>Descuento por nómina</strong><div class="small text-muted">Tu fondo de empleados verificará tu vinculación y cupo. Puede aprobar el total, una parte (pagas la diferencia con otro medio) o rechazar.</div></label>
-          </div>
-          <button type="submit" class="btn btn-tio btn-lg w-100">Continuar <i class="bi bi-arrow-right ms-2"></i></button>
-        </form>
-      </div>
-      <div class="col-lg-4">
-        <div class="product-card p-4" style="position:sticky;top:20px;">
-          <h4 class="section-title mb-4">Resumen</h4>
-          {% for item in items %}
-            <div class="d-flex justify-content-between gap-3 mb-3">
-              <div><strong>{{ item.nombre_mostrar }}</strong><div class="small text-muted">{{ item.detalle_mostrar }} · {{ item.cantidad }} x ${{ item.precio_unitario|floatformat:0 }}</div></div>
-              <strong>${{ item.subtotal|floatformat:0 }}</strong>
-            </div>
-          {% endfor %}
-          <hr>
-          <div class="d-flex justify-content-between"><span class="fw-semibold">Total</span><span class="price">${{ total|floatformat:0 }}</span></div>
         </div>
-      </div>
+      </section>
+
+      <!-- 3. Entrega -->
+      <section class="tc-panel">
+        <h2><span class="tc-paso">3</span> Entrega</h2>
+        <div class="tc-aviso-entrega mb-3" id="tc-aviso-general">
+          <i class="bi bi-truck"></i>
+          <span>Te contactaremos para coordinar la entrega.</span>
+        </div>
+        <div id="tc-aviso-finca" hidden>
+          <div class="tc-aviso-entrega mb-2">
+            <i class="bi bi-calendar-check"></i>
+            <span><strong>La fecha de entrega se acuerda con el fondo de empleados.</strong></span>
+          </div>
+          <div class="tc-aviso-entrega mb-3" style="background:var(--tc-verde-suave)">
+            <i class="bi bi-geo-alt-fill" style="color:var(--tc-verde)"></i>
+            <span><strong>Con descuento por nómina no necesitas dirección.</strong> En el siguiente paso eliges la finca donde trabajas y allí te entregamos.</span>
+          </div>
+        </div>
+        <div class="row g-3" id="tc-direccion">
+          <div class="col-md-8">
+            <label class="form-label fw-semibold" for="id_direccion">Dirección de entrega</label>
+            <input class="form-control form-control-lg" id="id_direccion" name="direccion_entrega" autocomplete="street-address" required value="{{ form.direccion_entrega.value|default:'' }}">
+            {% for error in form.direccion_entrega.errors %}<div class="tc-error">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold" for="id_ciudad">Ciudad</label>
+            <input class="form-control form-control-lg" id="id_ciudad" name="ciudad" autocomplete="address-level2" required value="{{ form.ciudad.value|default:'Bogotá' }}">
+            {% for error in form.ciudad.errors %}<div class="tc-error">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold" for="id_observaciones">Observaciones (opcional)</label>
+            <textarea class="form-control" id="id_observaciones" name="observaciones" rows="2">{{ form.observaciones.value|default:'' }}</textarea>
+          </div>
+        </div>
+      </section>
     </div>
-  </div>
-</section>
+
+    <!-- Resumen -->
+    <aside class="tc-resumen">
+      <div class="tc-panel">
+        <h2 class="mb-2"><i class="bi bi-bag-check"></i> Resumen</h2>
+        {% for item in items %}
+          <div class="tc-resumen__item">
+            <span>{{ item.cantidad }} × {{ item.nombre_mostrar }}<span class="d-block small text-muted">{{ item.detalle_mostrar }}</span></span>
+            <strong>${{ item.subtotal|floatformat:"0g" }}</strong>
+          </div>
+        {% endfor %}
+        <hr>
+        <div class="d-flex justify-content-between align-items-baseline mb-3">
+          <span class="fw-semibold">Total</span>
+          <span class="fs-4 fw-bold" style="color:var(--tc-verde)">${{ total|floatformat:"0g" }}</span>
+        </div>
+        <button type="submit" class="tc-add__btn" id="tc-boton-continuar">
+          <span data-texto-normal>Confirmar pedido</span>
+          <span data-texto-login hidden>Continuar e iniciar sesión</span>
+          <i class="bi bi-arrow-right"></i>
+        </button>
+        <a href="{% url 'carrito:detalle' %}" class="d-block text-center small mt-3" style="color:var(--tc-verde)">Volver al carrito</a>
+      </div>
+    </aside>
+  </form>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+  // Con nómina y sin sesión, los datos de contacto no se piden aquí (se piden al iniciar sesión).
+  (function () {
+    const form = document.getElementById("tc-checkout-form");
+    const autenticado = {{ user.is_authenticated|yesno:"true,false" }};
+    const contacto = document.getElementById("tc-contacto");
+    const normal = form.querySelector("[data-texto-normal]");
+    const login = form.querySelector("[data-texto-login]");
+
+    function actualizar() {
+      const metodo = (form.querySelector('input[name="metodo_pago"]:checked') || {}).value;
+      const nominaSinSesion = !autenticado && metodo === "NOMINA";
+      const esNomina = metodo === "NOMINA";
+      document.getElementById("tc-direccion").hidden = esNomina;
+      document.getElementById("tc-aviso-finca").hidden = !esNomina;
+      document.getElementById("tc-aviso-general").hidden = esNomina;
+      ["id_direccion", "id_ciudad"].forEach((id) => { document.getElementById(id).required = !esNomina; });
+      contacto.hidden = nominaSinSesion;
+      normal.hidden = nominaSinSesion;
+      login.hidden = !nominaSinSesion;
+      form.querySelectorAll("[data-invitado-requerido]").forEach((campo) => {
+        campo.required = !autenticado && !nominaSinSesion;
+      });
+    }
+
+    form.addEventListener("change", actualizar);
+    actualizar();
+  })();
+</script>
 {% endblock %}

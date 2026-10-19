@@ -1,1090 +1,214 @@
-{% load static %}
-
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="es">
-
 <head>
-
-    <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>
-        {% block title %}
-            Tío Campo Commerce
-        {% endblock %}
-    </title>
-
-
-    <!-- =====================================================
-         BOOTSTRAP
-    ====================================================== -->
-
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        rel="stylesheet"
-    >
-
-
-    <!-- =====================================================
-         BOOTSTRAP ICONS
-    ====================================================== -->
-
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
-        rel="stylesheet"
-    >
-
-
-    <!-- =====================================================
-         GOOGLE FONTS
-    ====================================================== -->
-
-    <link
-        href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap"
-        rel="stylesheet"
-    >
-
-
-    <!-- =====================================================
-         ESTILOS CORPORATIVOS
-    ====================================================== -->
-
-    <style>
-
-        :root {
-
-            /* ==============================
-               VERDES
-            ============================== */
-
-            --verde-principal: #0B4D2C;
-            --verde-secundario: #1D6B3A;
-            --verde-claro: #4C9A5A;
-
-
-            /* ==============================
-               AZULES
-            ============================== */
-
-            --azul: #173B73;
-            --azul-claro: #295EA8;
-
-
-            /* ==============================
-               DORADOS
-            ============================== */
-
-            --dorado: #C79A2B;
-            --dorado-claro: #E5BF58;
-
-
-            /* ==============================
-               CREMA
-            ============================== */
-
-            --crema: #F7F3E9;
-
-
-            /* ==============================
-               BLANCOS
-            ============================== */
-
-            --blanco: #FFFFFF;
-
-
-            /* ==============================
-               GRISES
-            ============================== */
-
-            --gris: #666666;
-            --gris-claro: #EFEFEF;
-
-
-            /* ==============================
-               SOMBRA
-            ============================== */
-
-            --sombra: 0 12px 30px rgba(0, 0, 0, 0.12);
-
-        }
-
-
-        /* =====================================================
-           CONFIGURACIÓN GENERAL
-        ====================================================== */
-
-        * {
-            box-sizing: border-box;
-        }
-
-
-        html {
-            scroll-behavior: smooth;
-        }
-
-
-        body {
-
-            margin: 0;
-
-            padding: 0;
-
-            font-family: 'Poppins', sans-serif;
-
-            background-color: var(--crema);
-
-            color: #333;
-
-        }
-
-
-        a {
-            text-decoration: none;
-        }
-
-
-        img {
-            max-width: 100%;
-        }
-
-
-        /* =====================================================
-           NAVBAR
-        ====================================================== */
-
-        .navbar-custom {
-
-            background:
-                linear-gradient(
-                    90deg,
-                    var(--verde-principal),
-                    var(--azul)
-                );
-
-            box-shadow: var(--sombra);
-
-            padding: 15px 0;
-
-        }
-
-
-        .navbar-custom .navbar-brand {
-
-            color: var(--blanco) !important;
-
-            font-family: 'Playfair Display', serif;
-
-            font-size: 30px;
-
-            font-weight: 700;
-
-            letter-spacing: 0.3px;
-
-        }
-
-
-        .navbar-custom .nav-link {
-
-            color: var(--blanco) !important;
-
-            font-weight: 500;
-
-            margin-left: 6px;
-
-            transition: all 0.3s ease;
-
-        }
-
-
-        .navbar-custom .nav-link:hover {
-
-            color: var(--dorado-claro) !important;
-
-        }
-
-
-        /* =====================================================
-           BOTÓN CARRITO
-        ====================================================== */
-
-        .btn-carrito {
-
-            background-color: var(--blanco);
-
-            color: var(--verde-principal);
-
-            border: none;
-
-            border-radius: 30px;
-
-            padding: 9px 18px;
-
-            font-weight: 600;
-
-            transition: all 0.3s ease;
-
-        }
-
-
-        .btn-carrito:hover {
-
-            background-color: var(--dorado);
-
-            color: var(--blanco);
-
-        }
-
-
-        /* =====================================================
-           BOTÓN PRINCIPAL
-        ====================================================== */
-
-        .btn-tio {
-
-            background-color: var(--dorado);
-
-            color: var(--blanco);
-
-            border: none;
-
-            border-radius: 30px;
-
-            padding: 12px 25px;
-
-            font-weight: 600;
-
-            transition: all 0.3s ease;
-
-        }
-
-
-        .btn-tio:hover {
-
-            background-color: var(--verde-principal);
-
-            color: var(--blanco);
-
-        }
-
-
-        /* =====================================================
-           HERO
-        ====================================================== */
-
-        .hero {
-
-            padding: 80px 0;
-
-        }
-
-
-        .hero-title {
-
-            font-family: 'Playfair Display', serif;
-
-            color: var(--verde-principal);
-
-            font-size: 3.5rem;
-
-            font-weight: 700;
-
-        }
-
-
-        .hero-subtitle {
-
-            color: var(--gris);
-
-            font-size: 1.1rem;
-
-            line-height: 1.7;
-
-        }
-
-
-        /* =====================================================
-           TÍTULOS
-        ====================================================== */
-
-        .section-title {
-
-            color: var(--verde-principal);
-
-            font-weight: 700;
-
-        }
-
-
-        /* =====================================================
-           TARJETAS
-        ====================================================== */
-
-        .product-card {
-
-            border: none;
-
-            border-radius: 20px;
-
-            background-color: var(--blanco);
-
-            box-shadow: var(--sombra);
-
-            transition: all 0.3s ease;
-
-            overflow: hidden;
-
-        }
-
-
-        .product-card:hover {
-
-            transform: translateY(-7px);
-
-            box-shadow:
-                0 18px 40px rgba(0, 0, 0, 0.16);
-
-        }
-
-
-        /* =====================================================
-           IMÁGENES DE TARJETAS
-        ====================================================== */
-
-        .product-card img {
-
-            width: 100%;
-
-            height: 230px;
-
-            object-fit: contain;
-
-            object-position: center;
-
-            background-color: var(--blanco);
-
-            padding: 12px;
-
-            display: block;
-
-        }
-
-
-        /* =====================================================
-           CONTENEDOR DE IMAGEN DE PRODUCTO
-        ====================================================== */
-
-        .product-image-container {
-
-            width: 100%;
-
-            height: 230px;
-
-            background-color: var(--blanco);
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            overflow: hidden;
-
-            padding: 10px;
-
-        }
-
-
-        .product-image-container img {
-
-            width: 100%;
-
-            height: 100%;
-
-            object-fit: contain;
-
-            object-position: center;
-
-            display: block;
-
-        }
-
-
-        /* =====================================================
-           IMAGEN GRANDE DE DETALLE
-        ====================================================== */
-
-        .product-detail-image {
-
-            width: 100%;
-
-            height: 500px;
-
-            object-fit: contain;
-
-            object-position: center;
-
-            background-color: var(--blanco);
-
-            padding: 20px;
-
-            display: block;
-
-        }
-
-
-        /* =====================================================
-           INFORMACIÓN DE PRODUCTO
-        ====================================================== */
-
-        .product-info-description {
-
-            padding-right: 20px;
-
-        }
-
-
-        .product-info-description p {
-
-            font-size: 1rem;
-
-            line-height: 1.9;
-
-        }
-
-
-        .product-info-panel {
-
-            color: #222;
-
-        }
-
-
-        .product-info-item {
-
-            line-height: 1.7;
-
-        }
-
-
-        .product-info-item strong {
-
-            color: #111;
-
-            margin-right: 5px;
-
-        }
-
-
-        .product-info-item span {
-
-            color: #333;
-
-        }
-
-
-        /* =====================================================
-           SELECTOR DE PRESENTACIÓN
-        ====================================================== */
-
-        .form-select {
-
-            border-color: #d8d8d8;
-
-        }
-
-
-        .form-select:focus {
-
-            border-color: var(--verde-principal);
-
-            box-shadow:
-                0 0 0 0.2rem rgba(11, 77, 44, 0.15);
-
-        }
-
-
-        /* =====================================================
-           PRECIO
-        ====================================================== */
-
-        .price {
-
-            color: var(--verde-principal);
-
-            font-size: 1.5rem;
-
-            font-weight: 700;
-
-        }
-
-
-        /* =====================================================
-           FOOTER
-        ====================================================== */
-
-        .footer-custom {
-
-            background:
-                linear-gradient(
-                    90deg,
-                    var(--verde-principal),
-                    var(--azul)
-                );
-
-            color: var(--blanco);
-
-            margin-top: 70px;
-
-            padding: 50px 0;
-
-        }
-
-
-        .footer-custom h5 {
-
-            color: var(--dorado-claro);
-
-            font-weight: 700;
-
-        }
-
-
-        .footer-custom a {
-
-            color: var(--blanco);
-
-        }
-
-
-        .footer-custom a:hover {
-
-            color: var(--dorado-claro);
-
-        }
-
-
-        /* =====================================================
-           RESPONSIVE
-        ====================================================== */
-
-        @media (max-width: 992px) {
-
-            .navbar-custom .nav-link {
-
-                margin-left: 0;
-
-                padding: 10px 0;
-
-            }
-
-
-            .navbar-custom .btn-carrito {
-
-                margin-top: 10px;
-
-            }
-
-
-            .product-detail-image {
-
-                height: 400px;
-
-            }
-
-        }
-
-
-        @media (max-width: 768px) {
-
-            .hero-title {
-
-                font-size: 2.5rem;
-
-            }
-
-
-            .navbar-custom .navbar-brand {
-
-                font-size: 24px;
-
-            }
-
-
-            .product-detail-image {
-
-                height: 350px;
-
-            }
-
-
-            .product-info-description {
-
-                padding-right: 0;
-
-            }
-
-        }
-
-
-        @media (max-width: 576px) {
-
-            .product-detail-image {
-
-                height: 300px;
-
-                padding: 10px;
-
-            }
-
-
-            .product-card img,
-            .product-image-container {
-
-                height: 200px;
-
-            }
-
-        }
-
-    </style>
-
-
-    {% block css %}
-    {% endblock %}
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0B4D2C">
+  <title>{% block title %}Tío Campo · Mercado en línea{% endblock %}</title>
+  <meta name="description" content="{% block descripcion %}Productos del campo. Paga en línea o con descuento por nómina de tu fondo de empleados.{% endblock %}">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  {# ?v=…: obliga al navegador a descargar la versión nueva. Súbelo cada vez que cambies tienda.css o tienda.js. #}
+  <link href="{% static 'css/tienda.css' %}?v=2026-10-16" rel="stylesheet">
+  {% block css %}{% endblock %}
 </head>
-
-
 <body>
 
-
-<!-- =====================================================
-     NAVBAR PRINCIPAL
-====================================================== -->
-
-<nav class="navbar navbar-expand-lg navbar-custom">
-
-    <div class="container">
-
-
-        <!-- =================================================
-             LOGO / MARCA
-        ================================================== -->
-
-        <a
-            class="navbar-brand"
-            href="/"
-        >
-            Tío Campo
-        </a>
-
-
-        <!-- =================================================
-             BOTÓN MENÚ MÓVIL
-        ================================================== -->
-
-        <button
-            class="navbar-toggler bg-light"
-            type="button"
-            data-bs-toggle="collapse"
-            data-bs-target="#menuPrincipal"
-            aria-controls="menuPrincipal"
-            aria-expanded="false"
-            aria-label="Abrir menú"
-        >
-
-            <span class="navbar-toggler-icon"></span>
-
-        </button>
-
-
-        <!-- =================================================
-             MENÚ
-        ================================================== -->
-
-        <div
-            class="collapse navbar-collapse"
-            id="menuPrincipal"
-        >
-
-            <ul
-                class="navbar-nav ms-auto align-items-lg-center gap-lg-2"
-            >
-
-
-                <!-- INICIO -->
-
-                <li class="nav-item">
-
-                    <a
-                        class="nav-link"
-                        href="/"
-                    >
-                        Inicio
-                    </a>
-
-                </li>
-
-
-                <!-- PRODUCTOS -->
-
-                <li class="nav-item">
-
-                    <a
-                        class="nav-link"
-                        href="{% url 'productos:lista' %}"
-                    >
-                        Productos
-                    </a>
-
-                </li>
-
-
-                <!-- CATEGORÍAS (dinámicas desde la base de datos) -->
-
-                {% for categoria in categorias_menu %}
-
-                    <li class="nav-item">
-
-                        <a
-                            class="nav-link"
-                            href="{% url 'productos:categoria' categoria.id %}"
-                        >
-                            {{ categoria.nombre }}
-                        </a>
-
-                    </li>
-
-                {% endfor %}
-
-
-                <!-- PROMOCIONES -->
-
-                <li class="nav-item">
-
-                    <a
-                        class="nav-link"
-                        href="{% url 'combos:lista_combos' %}"
-                    >
-                        Promociones
-                    </a>
-
-                </li>
-
-
-                <!-- FONDOS -->
-
-                <li class="nav-item">
-
-                    <a
-                        class="nav-link"
-                        href="{% if request.user.is_authenticated %}{% url 'fondos:mis_solicitudes' %}{% else %}{% url 'login' %}?next={% url 'fondos:mis_solicitudes' %}{% endif %}"
-                    >
-                        Fondos
-                    </a>
-
-                </li>
-
-
-                <!-- CARRITO -->
-
-                <li class="nav-item ms-lg-2">
-
-                    <a
-                        class="btn btn-carrito"
-                        href="{% url 'carrito:detalle' %}"
-                    >
-
-                        <i class="bi bi-cart3 me-1"></i>
-
-                        Carrito
-
-                        {% if cantidad_carrito %}
-                            <span class="badge rounded-pill text-bg-warning ms-1">{{ cantidad_carrito }}</span>
-                        {% endif %}
-
-                    </a>
-
-                </li>
-
-
-                {% if request.user.is_authenticated %}
-
-                    <!-- MIS PEDIDOS -->
-
-                    <li class="nav-item">
-
-                        <a
-                            class="nav-link"
-                            href="{% url 'pedidos:mis_pedidos' %}"
-                        >
-                            Mis pedidos
-                        </a>
-
-                    </li>
-
-
-                    <!-- GESTIONAR NÓMINA -->
-
-                    {% if request.user.fondos_gestionados.exists or request.user.is_superuser %}
-
-                        <li class="nav-item">
-
-                            <a
-                                class="nav-link"
-                                href="{% url 'fondos:gestion_solicitudes' %}"
-                            >
-                                Gestionar nómina
-                            </a>
-
-                        </li>
-
-                    {% endif %}
-
-
-                    <!-- SALIR -->
-
-                    <li class="nav-item">
-
-                        <form
-                            method="post"
-                            action="{% url 'logout' %}"
-                            class="d-inline"
-                        >
-
-                            {% csrf_token %}
-
-                            <button
-                                type="submit"
-                                class="btn btn-link nav-link border-0"
-                            >
-                                Salir
-                            </button>
-
-                        </form>
-
-                    </li>
-
-
-                {% else %}
-
-                    <!-- INGRESAR -->
-
-                    <li class="nav-item">
-
-                        <a
-                            class="nav-link"
-                            href="{% url 'login' %}"
-                        >
-                            Ingresar
-                        </a>
-
-                    </li>
-
-
-                    <!-- REGISTRO -->
-
-                    <li class="nav-item">
-
-                        <a
-                            class="nav-link"
-                            href="{% url 'registro' %}"
-                        >
-                            Crear cuenta
-                        </a>
-
-                    </li>
-
-                {% endif %}
-
+<a class="visually-hidden-focusable" href="#contenido">Saltar al contenido</a>
+
+{# Configuración para tienda.js (rutas y token CSRF) #}
+<div id="tc-config" hidden
+     data-url-api="{% url 'carrito:api_cantidad' '__tipo__' 0 %}"
+     data-url-mini="{% url 'carrito:mini' %}"
+     data-url-carrito="{% url 'carrito:detalle' %}"
+     data-csrf="{{ csrf_token }}"></div>
+{{ cantidades_carrito|json_script:"tc-cantidades" }}
+
+<!-- ============ BARRA SUPERIOR ============ -->
+<div class="tc-topbar">
+  <div class="container">
+    <span><i class="bi bi-building me-1"></i> Compra con descuento por nómina de tu fondo de empleados</span>
+    <nav class="tc-topbar__links" aria-label="Enlaces de ayuda">
+      <a href="{% if user.is_authenticated %}{% url 'fondos:mis_solicitudes' %}{% else %}{% url 'login' %}?next={% url 'fondos:mis_solicitudes' %}{% endif %}">Descuento por nómina</a>
+      {% if user.is_superuser or user.fondos_gestionados.exists %}
+        <a href="{% url 'fondos:gestion_solicitudes' %}">Gestionar nómina</a>
+      {% endif %}
+      <a href="{% url 'combos:lista_combos' %}">Promociones</a>
+    </nav>
+  </div>
+</div>
+
+<!-- ============ ENCABEZADO ============ -->
+<header class="tc-header">
+  <div class="container">
+    <div class="tc-header__fila">
+      <a class="tc-logo" href="{% url 'dashboard' %}" aria-label="Tío Campo, inicio">
+        <span class="tc-logo__marca"><i class="bi bi-flower1"></i></span>
+        <span>Tío Campo<small>MERCADO DEL CAMPO</small></span>
+      </a>
+
+      <form class="tc-buscador" action="{% url 'productos:lista' %}" method="get" role="search">
+        <label for="tc-q" class="visually-hidden">Buscar productos</label>
+        <input id="tc-q" type="search" name="q" value="{{ busqueda|default:'' }}"
+               placeholder="¿Qué necesitas hoy? Leche, pan, combos…" autocomplete="off">
+        <button type="submit" aria-label="Buscar"><i class="bi bi-search"></i></button>
+      </form>
+
+      <div class="tc-acciones">
+        {% if user.is_authenticated %}
+          <div class="dropdown tc-accion--cuenta">
+            <button class="tc-accion" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="bi bi-person-circle"></i>
+              <span class="tc-accion__texto"><small>Hola,</small>{{ user.first_name|default:user.username|truncatechars:14 }}</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+              <li><a class="dropdown-item" href="{% url 'pedidos:mis_pedidos' %}"><i class="bi bi-receipt me-2"></i>Mis pedidos</a></li>
+              <li><a class="dropdown-item" href="{% url 'fondos:mis_solicitudes' %}"><i class="bi bi-building me-2"></i>Mis solicitudes de nómina</a></li>
+              {% if user.is_superuser or user.fondos_gestionados.exists %}
+                <li><a class="dropdown-item" href="{% url 'fondos:gestion_solicitudes' %}"><i class="bi bi-clipboard-check me-2"></i>Gestionar nómina</a></li>
+              {% endif %}
+              {% if perms.pedidos.registrar_entrega %}
+                <li><a class="dropdown-item" href="{% url 'pedidos:entregas' %}"><i class="bi bi-truck me-2"></i>Entregas</a></li>
+              {% endif %}
+              <li><hr class="dropdown-divider"></li>
+              <li>
+                <form method="post" action="{% url 'logout' %}">{% csrf_token %}
+                  <button type="submit" class="dropdown-item"><i class="bi bi-box-arrow-right me-2"></i>Salir</button>
+                </form>
+              </li>
             </ul>
+          </div>
+        {% else %}
+          <a class="tc-accion tc-accion--cuenta" href="{% url 'login' %}">
+            <i class="bi bi-person-circle"></i>
+            <span class="tc-accion__texto"><small>Hola,</small>Ingresa o regístrate</span>
+          </a>
+        {% endif %}
 
-        </div>
-
+        <button class="tc-btn-carrito" type="button" data-bs-toggle="offcanvas" data-bs-target="#tc-mini" aria-controls="tc-mini">
+          <i class="bi bi-cart3"></i>
+          <span class="tc-contador" data-cart-count data-vacio="{% if cantidad_carrito %}0{% else %}1{% endif %}">{{ cantidad_carrito }}</span>
+          <span class="tc-btn-carrito__total" data-cart-total>${{ total_carrito|floatformat:"0g" }}</span>
+          <span class="visually-hidden">Abrir carrito</span>
+        </button>
+      </div>
     </div>
+  </div>
 
-</nav>
+  <nav class="tc-catbar" aria-label="Categorías">
+    <div class="container">
+      <ul class="tc-catbar__lista">
+        <li><a href="{% url 'productos:lista' %}" {% if request.resolver_match.url_name == 'lista' and not categoria %}class="activo"{% endif %}><i class="bi bi-grid-3x3-gap"></i> Todo</a></li>
+        <li><a class="oferta" href="{% url 'combos:lista_combos' %}"><i class="bi bi-tag-fill"></i> Combos y ofertas</a></li>
+        {% for c in categorias_menu %}
+          <li><a href="{% url 'productos:categoria' c.id %}" {% if categoria and categoria.id == c.id %}class="activo"{% endif %}><i class="bi bi-{{ c.icono }}"></i> {{ c.nombre }}</a></li>
+        {% endfor %}
+        {% if pendientes_entrega is not None %}
+          <li class="ms-auto">
+            <a class="tc-catbar__entregas {% if request.resolver_match.url_name == 'entregas' %}activo{% endif %}" href="{% url 'pedidos:entregas' %}">
+              <i class="bi bi-truck"></i> Entregas
+              {% if pendientes_entrega %}<span class="tc-catbar__pendientes" title="Pedidos por entregar">{{ pendientes_entrega }}</span>{% endif %}
+            </a>
+          </li>
+        {% endif %}
+      </ul>
+    </div>
+  </nav>
+</header>
 
-
-<!-- =====================================================
-     CONTENIDO
-====================================================== -->
-
-<main>
-
-    {% if messages %}
-
-        <div class="container pt-3">
-
-            {% for message in messages %}
-
-                <div
-                    class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show"
-                    role="alert"
-                >
-
-                    {{ message }}
-
-                    <button
-                        type="button"
-                        class="btn-close"
-                        data-bs-dismiss="alert"
-                    ></button>
-
-                </div>
-
-            {% endfor %}
-
-        </div>
-
-    {% endif %}
-
-
-    {% block content %}
-    {% endblock %}
-
+<!-- ============ CONTENIDO ============ -->
+<main id="contenido">
+  {% for message in messages %}
+    <div hidden data-mensaje="{{ message }}" data-nivel="{{ message.tags }}"></div>
+  {% endfor %}
+  {% block content %}{% endblock %}
 </main>
 
-
-<!-- =====================================================
-     FOOTER
-====================================================== -->
-
-<footer class="footer-custom">
-
-    <div class="container">
-
-        <div class="row g-4">
-
-
-            <!-- =================================================
-                 INFORMACIÓN
-            ================================================== -->
-
-            <div class="col-lg-4">
-
-                <h5>
-                    Tío Campo Commerce
-                </h5>
-
-                <p>
-
-                    Plataforma de comercio electrónico
-                    para la compra de productos del campo.
-
-                </p>
-
-            </div>
-
-
-            <!-- =================================================
-                 NAVEGACIÓN
-            ================================================== -->
-
-            <div class="col-lg-4">
-
-                <h5>
-                    Navegación
-                </h5>
-
-                <p>
-
-                    <a href="/">
-                        Inicio
-                    </a>
-
-                </p>
-
-                <p>
-
-                    <a href="{% url 'productos:lista' %}">
-                        Productos
-                    </a>
-
-                </p>
-
-                <p>
-
-                    <a href="{% url 'combos:lista_combos' %}">
-                        Promociones
-                    </a>
-
-                </p>
-
-                <p>
-
-                    <a href="{% url 'fondos:mis_solicitudes' %}">
-                        Fondos de empleados
-                    </a>
-
-                </p>
-
-            </div>
-
-
-            <!-- =================================================
-                 CONTACTO
-            ================================================== -->
-
-            <div class="col-lg-4">
-
-                <h5>
-                    Contacto
-                </h5>
-
-                <p>
-
-                    <i class="bi bi-envelope me-2"></i>
-
-                    Contacto
-
-                </p>
-
-                <p>
-
-                    <i class="bi bi-telephone me-2"></i>
-
-                    Atención al cliente
-
-                </p>
-
-            </div>
-
-
-        </div>
-
-
-        <hr>
-
-
-        <div class="text-center">
-
-            © 2026 Tío Campo Commerce
-
-        </div>
-
+<!-- ============ PIE ============ -->
+<footer class="tc-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-4">
+        <a class="tc-logo text-white" href="{% url 'dashboard' %}">
+          <span class="tc-logo__marca" style="background:var(--tc-dorado);color:#fff"><i class="bi bi-flower1"></i></span>
+          <span>Tío Campo</span>
+        </a>
+        <p class="mt-3 mb-0">Productos frescos del campo. Compra con tarjeta, PSE, Nequi o descuento por nómina de tu fondo de empleados.</p>
+      </div>
+      <div class="col-6 col-lg-2">
+        <h3>Comprar</h3>
+        <ul>
+          <li><a href="{% url 'productos:lista' %}">Todos los productos</a></li>
+          <li><a href="{% url 'combos:lista_combos' %}">Combos y ofertas</a></li>
+          <li><a href="{% url 'carrito:detalle' %}">Mi carrito</a></li>
+        </ul>
+      </div>
+      <div class="col-6 col-lg-3">
+        <h3>Mi cuenta</h3>
+        <ul>
+          <li><a href="{% url 'pedidos:mis_pedidos' %}">Mis pedidos</a></li>
+          <li><a href="{% url 'fondos:mis_solicitudes' %}">Descuento por nómina</a></li>
+          {% if not user.is_authenticated %}<li><a href="{% url 'registro' %}">Crear cuenta</a></li>{% endif %}
+        </ul>
+      </div>
+      <div class="col-lg-3">
+        <h3>Medios de pago</h3>
+        <p class="mb-2"><i class="bi bi-credit-card me-2"></i>Tarjetas · PSE · Nequi</p>
+        <p class="mb-0"><i class="bi bi-building me-2"></i>Descuento por nómina</p>
+      </div>
     </div>
-
+    <div class="tc-footer__legal d-flex flex-wrap justify-content-between gap-2">
+      <span>© {% now "Y" %} Tío Campo</span>
+      <a href="{% url 'politica_datos' %}">Política de tratamiento de datos personales</a>
+    </div>
+  </div>
 </footer>
 
+<!-- ============ NAVEGACIÓN INFERIOR (CELULAR) ============ -->
+<nav class="tc-bottomnav" aria-label="Navegación principal">
+  {% with nombre=request.resolver_match.url_name %}
+  <a href="{% url 'dashboard' %}" class="{% if nombre == 'dashboard' %}activo{% endif %}"><i class="bi bi-house"></i>Inicio</a>
+  <a href="{% url 'productos:lista' %}" class="{% if nombre == 'lista' or nombre == 'categoria' %}activo{% endif %}"><i class="bi bi-grid-3x3-gap"></i>Categorías</a>
+  {% if pendientes_entrega is not None %}
+    <a href="{% url 'pedidos:entregas' %}" class="{% if nombre == 'entregas' %}activo{% endif %}"><i class="bi bi-truck"></i>Entregas
+      {% if pendientes_entrega %}<span class="tc-contador">{{ pendientes_entrega }}</span>{% endif %}</a>
+  {% else %}
+    <a href="{% url 'combos:lista_combos' %}" class="{% if nombre == 'lista_combos' %}activo{% endif %}"><i class="bi bi-tag"></i>Ofertas</a>
+  {% endif %}
+  <button type="button" data-bs-toggle="offcanvas" data-bs-target="#tc-mini" aria-controls="tc-mini">
+    <i class="bi bi-cart3"></i>Carrito
+    <span class="tc-contador" data-cart-count data-vacio="{% if cantidad_carrito %}0{% else %}1{% endif %}">{{ cantidad_carrito }}</span>
+  </button>
+  <a href="{% if user.is_authenticated %}{% url 'pedidos:mis_pedidos' %}{% else %}{% url 'login' %}{% endif %}" class="{% if nombre == 'mis_pedidos' or nombre == 'login' %}activo{% endif %}"><i class="bi bi-person"></i>Cuenta</a>
+  {% endwith %}
+</nav>
 
-<!-- =====================================================
-     BOOTSTRAP JAVASCRIPT
-====================================================== -->
+<!-- ============ CARRITO LATERAL ============ -->
+<div class="offcanvas offcanvas-end tc-mini" tabindex="-1" id="tc-mini" aria-labelledby="tc-mini-titulo">
+  <div class="offcanvas-header">
+    <h2 class="offcanvas-title fs-5 fw-bold" id="tc-mini-titulo" style="color:var(--tc-verde)"><i class="bi bi-cart3 me-2"></i>Tu carrito</h2>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+  </div>
+  <div class="offcanvas-body p-0" data-mini-cuerpo>
+    <div class="text-center p-5 text-muted"><div class="spinner-border spinner-border-sm"></div></div>
+  </div>
+  <div class="tc-mini__pie">
+    <div class="d-flex justify-content-between mb-3 fs-5">
+      <span>Total</span><strong data-cart-total>${{ total_carrito|floatformat:"0g" }}</strong>
+    </div>
+    <a href="{% url 'pedidos:checkout' %}" class="tc-add__btn text-decoration-none mb-2">Ir a pagar <i class="bi bi-arrow-right"></i></a>
+    <a href="{% url 'carrito:detalle' %}" class="d-block text-center small fw-semibold" style="color:var(--tc-verde)">Ver carrito completo</a>
+  </div>
+</div>
 
-<script
-    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js">
-</script>
+<div class="tc-toasts" id="tc-toasts" aria-live="polite"></div>
 
-
-{% block js %}
-{% endblock %}
-
-
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{% static 'js/tienda.js' %}?v=2026-10-16"></script>
+{% block js %}{% endblock %}
 </body>
-
 </html>

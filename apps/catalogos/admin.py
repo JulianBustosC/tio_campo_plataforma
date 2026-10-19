@@ -12,6 +12,7 @@ from .models import (
 class CategoriaAdmin(admin.ModelAdmin):
     list_display = (
         "nombre",
+        "icono",
         "activo",
         "orden",
     )
@@ -25,6 +26,7 @@ class CategoriaAdmin(admin.ModelAdmin):
     )
 
     list_editable = (
+        "icono",
         "activo",
         "orden",
     )

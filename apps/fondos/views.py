@@ -1,18 +1,32 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db import transaction
+from django.db.models import Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.views.decorators.http import require_POST
 
+from apps.core.cifrado import huella
 from apps.pedidos.models import Pedido
 from .forms import CargaPadronForm, RespuestaFondoForm, SolicitudDescuentoNominaForm
-from .models import FondoEmpleado, HistorialSolicitud, SolicitudDescuentoNomina
+from .models import FondoEmpleado, SolicitudDescuentoNomina
+from .reportes import (
+    ReporteError,
+    archivo_reporte,
+    cerrar_corte,
+    enviar_corte_por_correo,
+    periodo_desde_texto,
+    periodo_por_defecto,
+    resumen,
+    solicitudes_del_periodo,
+)
 from .services import (
     DecisionInvalida,
+    SolicitudError,
     aplicar_decision,
+    crear_solicitud,
     importar_padron,
-    procesar_verificacion,
-    registrar_historial,
 )
 
 
@@ -40,25 +54,11 @@ def solicitar_descuento_nomina(request, pedido_id):
     if request.method == "POST":
         form = SolicitudDescuentoNominaForm(request.POST)
         if form.is_valid():
-            with transaction.atomic():
-                pedido = Pedido.objects.select_for_update().get(pk=pedido.pk)
-                if SolicitudDescuentoNomina.objects.filter(pedido=pedido).exists():
-                    messages.info(request, "Este pedido ya tiene una solicitud de nómina.")
-                    return redirect("pedidos:confirmacion", pedido_id=pedido.id)
-
-                solicitud = form.save(commit=False)
-                solicitud.usuario = request.user
-                solicitud.pedido = pedido
-                solicitud.valor_solicitado = pedido.total
-                solicitud.estado = SolicitudDescuentoNomina.ESTADO_PENDIENTE
-                solicitud.save()
-                registrar_historial(solicitud, HistorialSolicitud.EVENTO_CREADA, usuario=request.user)
-
-                pedido.estado = Pedido.ESTADO_EN_REVISION_NOMINA
-                pedido.save(update_fields=["estado", "updated_at"])
-
-            # Fuera de la transacción: puede consultar un servicio externo del fondo.
-            solicitud = procesar_verificacion(solicitud.id)
+            try:
+                solicitud = crear_solicitud(pedido, form, request.user)
+            except SolicitudError as exc:
+                messages.info(request, str(exc))
+                return redirect("pedidos:confirmacion", pedido_id=pedido.id)
 
             if solicitud.esta_pendiente:
                 messages.success(
@@ -125,7 +125,7 @@ def _fondos_gestionables(user):
 
 
 def _solicitudes_gestionables(user):
-    qs = SolicitudDescuentoNomina.objects.select_related("fondo", "pedido", "usuario")
+    qs = SolicitudDescuentoNomina.objects.select_related("fondo", "finca", "pedido", "usuario")
     if user.is_superuser:
         return qs
     return qs.filter(fondo__in=user.fondos_gestionados.all())
@@ -143,8 +143,9 @@ def gestion_solicitudes(request):
 
     busqueda = request.GET.get("q", "").strip()
     if busqueda:
-        solicitudes = solicitudes.filter(documento__icontains=busqueda) | solicitudes.filter(
-            nombre_completo__icontains=busqueda
+        # El documento está cifrado: se busca por coincidencia exacta usando su huella.
+        solicitudes = solicitudes.filter(
+            Q(documento_huella=huella(busqueda)) | Q(nombre_completo__icontains=busqueda)
         )
 
     pagina = Paginator(solicitudes.order_by("fecha_solicitud"), 25).get_page(request.GET.get("page"))
@@ -231,3 +232,71 @@ def gestion_padron(request, fondo_id):
             "total_afiliados": fondo.afiliados.filter(activo=True).count(),
         },
     )
+
+
+# =====================================================
+# REPORTE MENSUAL DE DESCUENTOS POR NÓMINA
+# =====================================================
+
+def _periodo_solicitado(request):
+    texto = request.GET.get("mes") or request.POST.get("mes")
+    return periodo_desde_texto(texto) if texto else periodo_por_defecto()
+
+
+@login_required
+def gestion_reporte(request, fondo_id):
+    fondo = get_object_or_404(_fondos_gestionables(request.user), id=fondo_id)
+    try:
+        periodo = _periodo_solicitado(request)
+    except ReporteError as exc:
+        messages.error(request, str(exc))
+        return redirect("fondos:gestion_reporte", fondo_id=fondo.id)
+
+    formato = request.GET.get("formato")
+    if formato:
+        try:
+            contenido, tipo, nombre = archivo_reporte(fondo, periodo, formato)
+        except ReporteError as exc:
+            messages.error(request, str(exc))
+            return redirect(f"{request.path}?mes={periodo:%Y-%m}")
+        respuesta = HttpResponse(contenido, content_type=tipo)
+        respuesta["Content-Disposition"] = f'attachment; filename="{nombre}"'
+        respuesta["Cache-Control"] = "no-store"
+        return respuesta
+
+    corte, solicitudes = solicitudes_del_periodo(fondo, periodo)
+    datos = resumen(solicitudes)
+    return render(
+        request,
+        "fondos/gestion_reporte.html",
+        {
+            "fondo": fondo,
+            "periodo": periodo,
+            "corte": corte,
+            "solicitudes": solicitudes,
+            "resumen": datos,
+            "cortes": fondo.cortes.all()[:12],
+        },
+    )
+
+
+@login_required
+@require_POST
+def gestion_cerrar_corte(request, fondo_id):
+    fondo = get_object_or_404(_fondos_gestionables(request.user), id=fondo_id)
+    try:
+        periodo = _periodo_solicitado(request)
+        corte = cerrar_corte(fondo, periodo, usuario=request.user)
+    except ReporteError as exc:
+        messages.error(request, str(exc))
+    else:
+        mensaje = f"Corte {periodo:%Y-%m} cerrado: {corte.cantidad} descuentos por ${corte.total:,.0f}."
+        if request.POST.get("enviar"):
+            try:
+                enviar_corte_por_correo(corte)
+                mensaje += " El archivo se envió al fondo por correo."
+            except ReporteError as exc:
+                messages.warning(request, str(exc))
+        messages.success(request, mensaje)
+        return redirect(f"{reverse('fondos:gestion_reporte', args=[fondo.id])}?mes={periodo:%Y-%m}")
+    return redirect("fondos:gestion_reporte", fondo_id=fondo.id)

@@ -2,4 +2,6 @@ from django.apps import AppConfig
 
 
 class PagosConfig(AppConfig):
-    name = 'pagos'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "apps.pagos"
+    verbose_name = "Pagos"
