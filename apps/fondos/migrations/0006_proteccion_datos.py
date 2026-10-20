@@ -32,67 +32,79 @@ class Migration(migrations.Migration):
         ("fondos", "0005_verificacion_padron_auditoria"),
     ]
 
+    
     operations = [
-        # 1. Columnas de texto amplio para guardar el valor cifrado.
+        # 1. Agregar las huellas antes de utilizarlas.
+        migrations.AddField(
+            model_name="afiliadofondo",
+            name="documento_huella",
+            field=models.CharField(
+                max_length=64,
+                default="",
+                db_index=True,
+                editable=False,
+                help_text="Huella HMAC del documento para buscarlo sin guardarlo en claro.",
+            ),
+            preserve_default=False,
+        ),
+        migrations.AddField(
+            model_name="SolicitudDescuentoNomina",
+            name="documento_huella",
+            field=models.CharField(
+                max_length=64,
+                blank=True,
+                db_index=True,
+                editable=False,
+            ),
+        ),
+
+        # 2. Cambiar los campos personales a TextoCifrado.
         migrations.AlterField(
             model_name="afiliadofondo",
             name="documento",
-            field=apps.core.campos.TextoCifrado(help_text="Cifrado en la base de datos. Normalizado: solo dígitos y letras."),
+            field=apps.core.campos.TextoCifrado(
+                help_text="Cifrado en la base de datos. Normalizado: solo dígitos y letras."
+            ),
         ),
         migrations.AlterField(
-            model_name="solicituddescuentonomina",
+            model_name="SolicitudDescuentoNomina",
             name="documento",
             field=apps.core.campos.TextoCifrado(),
         ),
         migrations.AlterField(
-            model_name="solicituddescuentonomina",
+            model_name="SolicitudDescuentoNomina",
             name="telefono",
             field=apps.core.campos.TextoCifrado(blank=True),
         ),
-        # 2. Huellas de búsqueda.
-        migrations.RemoveConstraint(
-            model_name="afiliadofondo",
-            name="afiliado_documento_unico_por_fondo",
-        ),
+
+        # 3. Agregar los campos de autorización y anonimización.
         migrations.AddField(
-            model_name="afiliadofondo",
-            name="documento_huella",
-            field=models.CharField(default="", db_index=True, editable=False, max_length=64,
-                                   help_text="Huella HMAC del documento para buscarlo sin guardarlo en claro."),
-            preserve_default=False,
-        ),
-        migrations.AddField(
-            model_name="solicituddescuentonomina",
-            name="documento_huella",
-            field=models.CharField(blank=True, db_index=True, editable=False, max_length=64),
-        ),
-        # 3. Cifrar lo existente y calcular huellas.
-        migrations.RunPython(cifrar_existentes, migrations.RunPython.noop),
-        migrations.AddConstraint(
-            model_name="afiliadofondo",
-            constraint=models.UniqueConstraint(fields=("fondo", "documento_huella"), name="afiliado_documento_unico_por_fondo"),
-        ),
-        # 4. Autorización de tratamiento de datos y retención.
-        migrations.AddField(
-            model_name="solicituddescuentonomina",
+            model_name="SolicitudDescuentoNomina",
             name="autorizacion_datos",
             field=models.BooleanField(default=False),
         ),
         migrations.AddField(
-            model_name="solicituddescuentonomina",
+            model_name="SolicitudDescuentoNomina",
             name="autorizacion_fecha",
             field=models.DateTimeField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name="solicituddescuentonomina",
+            model_name="SolicitudDescuentoNomina",
             name="autorizacion_version",
-            field=models.CharField(blank=True, max_length=20,
-                                   help_text="Versión de la política de tratamiento de datos que aceptó el titular."),
+            field=models.CharField(
+                blank=True,
+                max_length=20,
+                help_text="Versión de la política de tratamiento de datos que aceptó el titular.",
+            ),
         ),
         migrations.AddField(
-            model_name="solicituddescuentonomina",
+            model_name="SolicitudDescuentoNomina",
             name="anonimizada_en",
-            field=models.DateTimeField(blank=True, null=True,
-                                       help_text="Fecha en que se borraron los datos personales por la política de retención."),
+            field=models.DateTimeField(
+                blank=True,
+                null=True,
+                help_text="Fecha en que se borraron los datos personales por la política de retención.",
+            ),
         ),
     ]
+

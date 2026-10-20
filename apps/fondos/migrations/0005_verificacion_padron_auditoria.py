@@ -50,22 +50,22 @@ class Migration(migrations.Migration):
             field=models.CharField(choices=[('MANUAL', 'Revisión manual del gestor'), ('PADRON', 'Padrón de afiliados cargado'), ('API', 'Servicio web del fondo')], default='MANUAL', max_length=10),
         ),
         migrations.AddField(
-            model_name='solicituddescuentonomina',
+            model_name='SolicitudDescuentoNomina',
             name='cupo_reservado',
             field=models.DecimalField(decimal_places=2, default=0, help_text='Cupo descontado del padrón; se devuelve si el pedido se cancela.', max_digits=12),
         ),
         migrations.AddField(
-            model_name='solicituddescuentonomina',
+            model_name='SolicitudDescuentoNomina',
             name='decidido_por',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='solicitudes_decididas', to=settings.AUTH_USER_MODEL),
         ),
         migrations.AddField(
-            model_name='solicituddescuentonomina',
+            model_name='SolicitudDescuentoNomina',
             name='origen_decision',
             field=models.CharField(blank=True, choices=[('AUTOMATICO', 'Automática (verificación del fondo)'), ('GESTOR', 'Gestor del fondo')], max_length=15),
         ),
         migrations.AddField(
-            model_name='solicituddescuentonomina',
+            model_name='SolicitudDescuentoNomina',
             name='verificacion_mensaje',
             field=models.TextField(blank=True, help_text='Resultado de la verificación automática (padrón o API).'),
         ),
@@ -88,12 +88,12 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.AddField(
-            model_name='solicituddescuentonomina',
+            model_name='SolicitudDescuentoNomina',
             name='afiliado',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='solicitudes', to='fondos.afiliadofondo'),
         ),
         migrations.AddIndex(
-            model_name='solicituddescuentonomina',
+            model_name='SolicitudDescuentoNomina',
             index=models.Index(fields=['fondo', 'estado'], name='fondos_soli_fondo_i_790653_idx'),
         ),
         migrations.AddField(
