@@ -95,6 +95,7 @@ MIDDLEWARE = [
 
     # Debe ir primero para aplicar cabeceras de seguridad a todas las respuestas.
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
 
     "django.contrib.sessions.middleware.SessionMiddleware",
 
@@ -252,9 +253,7 @@ STATICFILES_DIRS = [
 
 MEDIA_URL = "/media/"
 
-MEDIA_ROOT = (
-    BASE_DIR / "media"
-)
+MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT", str(BASE_DIR / "media")))
 
 # Archivos privados (firmas de entrega): fuera de MEDIA_ROOT para que el
 # servidor web nunca los publique. Inclúyalos en las copias de seguridad.
