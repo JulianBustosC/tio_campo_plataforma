@@ -526,3 +526,5 @@ LOGGING = {
         },
     },
 }
+
+ALLOWED_HOSTS = ['localhost','tiocampoplataforma-production.up.railway.app']
