@@ -7,6 +7,6 @@ drf-spectacular>=0.28
 openpyxl>=3.1
 gunicorn>=23.0
 whitenoise>=6.7
-psycopg[binary]>=3.2
+mysqlclient>=2.2.1
 # Producción con PostgreSQL:
 # psycopg[binary]>=3.2
