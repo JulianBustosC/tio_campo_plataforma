@@ -67,7 +67,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-
+    "whitenoise.runserver_nostatic",
     # Apps del proyecto
     "apps.dashboard",
     "apps.catalogos",
@@ -529,3 +529,10 @@ LOGGING = {
 }
 
 ALLOWED_HOSTS = ['localhost','tiocampoplataforma-production.up.railway.app']
+
+STORAGES = {
+    # ...
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
